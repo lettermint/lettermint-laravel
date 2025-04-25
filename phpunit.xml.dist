@@ -28,4 +28,9 @@
             <directory suffix=".php">./src</directory>
         </include>
     </source>
+    <php>
+        <env name="APP_ENV" value="testing"/>
+        <env name="MAIL_MAILER" value="lettermint"/>
+        <env name="LETTERMINT_TOKEN" value="test-key"/>
+    </php>
 </phpunit>

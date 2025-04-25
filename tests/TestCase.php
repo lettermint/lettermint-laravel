@@ -1,9 +1,9 @@
 <?php
 
-namespace Lettermint\Lettermint\Tests;
+namespace Lettermint\Laravel\Tests;
 
 use Illuminate\Database\Eloquent\Factories\Factory;
-use Lettermint\Lettermint\LettermintServiceProvider;
+use Lettermint\Laravel\LettermintServiceProvider;
 use Orchestra\Testbench\TestCase as Orchestra;
 
 class TestCase extends Orchestra

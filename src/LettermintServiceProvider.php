@@ -12,13 +12,8 @@ class LettermintServiceProvider extends PackageServiceProvider
 {
     public function configurePackage(Package $package): void
     {
-        /*
-         * This class is a Package Service Provider
-         *
-         * More info: https://github.com/spatie/laravel-package-tools
-         */
         $package
-            ->name('lettermint-laravel')
+            ->name('lettermint')
             ->hasConfigFile();
     }
 
@@ -42,7 +37,7 @@ class LettermintServiceProvider extends PackageServiceProvider
     {
         $this->app->singleton(\Lettermint\Lettermint::class, static function (): \Lettermint\Lettermint {
             // A user can configure the api token in the config file or in the services config file.
-            $apiToken = config('lettermint.api_token') ?? config('services.lettermint.token');
+            $apiToken = config('lettermint.token') ?? config('services.lettermint.token');
 
             if (! is_string($apiToken)) {
                 throw ApiTokenNotFoundException::create();

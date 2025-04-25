@@ -69,7 +69,7 @@ class LettermintTransportFactory extends AbstractTransport
 
         try {
             $builder = $this->lettermint->email
-                ->headers(...$headers)
+                ->headers($headers)
                 ->from($envelope->getSender()->toString())
                 ->to(...$this->stringifyAddresses($this->getRecipients($email, $envelope)))
                 ->subject($email->getSubject())

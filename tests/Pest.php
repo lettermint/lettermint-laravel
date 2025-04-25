@@ -1,5 +1,5 @@
 <?php
 
-use Lettermint\Lettermint\Tests\TestCase;
+use Lettermint\Laravel\Tests\TestCase;
 
 uses(TestCase::class)->in(__DIR__);

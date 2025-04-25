@@ -4,7 +4,7 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Lettermint API Token
+    | Lettermint Token
     |--------------------------------------------------------------------------
     |
     | Every Lettermint project has a unique API token. You can find your API
@@ -12,6 +12,6 @@ return [
     |
     */
 
-    'api_token' => env('LETTERMINT_API_TOKEN'),
+    'token' => env('LETTERMINT_TOKEN'),
 
 ];
