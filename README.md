@@ -5,7 +5,15 @@
 [![GitHub Code Style Action Status](https://img.shields.io/github/actions/workflow/status/lettermint/lettermint-laravel/fix-php-code-style-issues.yml?branch=main&label=code%20style&style=flat-square)](https://github.com/lettermint/lettermint-laravel/actions?query=workflow%3A"Fix+PHP+code+style+issues"+branch%3Amain)
 [![Total Downloads](https://img.shields.io/packagist/dt/lettermint/lettermint-laravel.svg?style=flat-square)](https://packagist.org/packages/lettermint/lettermint-laravel)
 
-Integrate Lettermint 
+Easily integrate [Lettermint](https://lettermint.co) into your Laravel applications to manage letter sending and delivery tracking.
+
+---
+
+## Requirements
+
+- PHP 8.2 or higher
+- Laravel 9 or higher
+
 
 ## Installation
 
@@ -18,15 +26,30 @@ composer require lettermint/lettermint-laravel
 You can publish the config file with:
 
 ```bash
-php artisan vendor:publish --tag="lettermint-laravel-config"
+php artisan vendor:publish --tag="lettermint-config"
 ```
 
+This creates a `config/lettermint.php` file where you can add your API token.
 
-## Usage
+## Configuration
 
+### Setting your API token
+
+Add your Lettermint API credentials in your `.env` file:
+
+```env
+LETTERMINT_TOKEN=your-lettermint-token
+```
+
+Or update the `config/lettermint.php` file as needed.
+
+### Adding the transport
+
+In your `config/mail.php`, add the Lettermint transport:
 ```php
-$lettermint = new Lettermint\Lettermint();
-echo $lettermint->echoPhrase('Hello, Lettermint!');
+        'lettermint' => [
+            'transport' => 'lettermint',
+        ],
 ```
 
 ## Testing
