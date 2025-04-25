@@ -36,7 +36,7 @@ it('registers the lettermint transport', function () {
 });
 
 it('can send email', function () {
-    $email = (new Email())
+    $email = (new Email)
         ->from('from@example.com')
         ->to(new Address('to@example.com', 'Acme'))
         ->cc('cc@example.com')
@@ -102,13 +102,13 @@ it('can send email', function () {
     $this->emailBuilder
         ->shouldReceive('send')
         ->once()
-        ->andReturn(['id' => '123', 'status' => "pending"]);
+        ->andReturn(['id' => '123', 'status' => 'pending']);
 
     $this->transport->send($email);
 });
 
 it('can send to multiple recipients', function () {
-    $email = (new Email())
+    $email = (new Email)
         ->from('from@example.com')
         ->to(
             new Address('to@example.com', 'Acme'),
@@ -169,13 +169,13 @@ it('can send to multiple recipients', function () {
     $this->emailBuilder
         ->shouldReceive('send')
         ->once()
-        ->andReturn(['id' => '123', 'status' => "pending"]);
+        ->andReturn(['id' => '123', 'status' => 'pending']);
 
     $this->transport->send($email);
 });
 
 it('can send email with headers', function () {
-    $email = (new Email())
+    $email = (new Email)
         ->from('from@example.com')
         ->to(new Address('to@example.com', 'Acme'))
         ->subject('Hello world!')
@@ -236,14 +236,13 @@ it('can send email with headers', function () {
     $this->emailBuilder
         ->shouldReceive('send')
         ->once()
-        ->andReturn(['id' => '123', 'status' => "pending"]);
+        ->andReturn(['id' => '123', 'status' => 'pending']);
 
     $this->transport->send($email);
 });
 
-
 it('can send with attachments', function () {
-    $email = (new Email())
+    $email = (new Email)
         ->from('from@example.com')
         ->to(new Address('to@example.com', 'Acme'))
         ->subject('Hello world!')
@@ -310,13 +309,13 @@ it('can send with attachments', function () {
     $this->emailBuilder
         ->shouldReceive('send')
         ->once()
-        ->andReturn(['id' => '123', 'status' => "pending"]);
+        ->andReturn(['id' => '123', 'status' => 'pending']);
 
     $this->transport->send($email);
 });
 
 it('throws transport exception on API error', function () {
-    $email = (new Email())
+    $email = (new Email)
         ->from('from@example.com')
         ->to('to@example.com')
         ->subject('Hello world!')
@@ -375,4 +374,3 @@ it('throws transport exception on API error', function () {
     expect(fn () => $this->transport->send($email))
         ->toThrow(TransportException::class, 'Sending email via Lettermint API failed: Failed to send email');
 });
-
