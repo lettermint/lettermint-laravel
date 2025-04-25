@@ -2,6 +2,8 @@ includes:
     - phpstan-baseline.neon
 
 parameters:
+    ignoreErrors:
+        - "#Called 'env' outside of the config directory#"
     level: 5
     paths:
         - src

@@ -39,7 +39,9 @@ class LettermintTransportFactory extends AbstractTransport
      */
     protected function doSend(SentMessage $message): void
     {
-        $email = MessageConverter::toEmail($message->getOriginalMessage());
+        /** @var \Symfony\Component\Mime\Message $original */
+        $original = $message->getOriginalMessage();
+        $email = MessageConverter::toEmail($original);
         $envelope = $message->getEnvelope();
 
         $headers = [];
