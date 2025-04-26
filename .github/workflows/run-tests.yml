@@ -54,13 +54,15 @@ jobs:
         run: |
           composer require "laravel/framework:${{ matrix.laravel }}" "orchestra/testbench:${{ matrix.testbench }}" --no-interaction --no-update
 
-      - name: Require compatible Pest and pest-plugin-laravel
+      - name: Require Pest 2.x and plugins for Laravel 10
+        if: startsWith(matrix.laravel, '10.')
         run: |
-          if [[ "${{ matrix.laravel }}" == "10."* ]]; then
-            composer require pestphp/pest:^2.34 pestphp/pest-plugin-laravel:^2.6 pestphp/pest-plugin-arch:^2.7 --dev --no-interaction --no-update
-          else
-            composer require pestphp/pest:^3.0 pestphp/pest-plugin-laravel:^3.0 pestphp/pest-plugin-arch:^3.0 --dev --no-interaction --no-update
-          fi
+          composer require "pestphp/pest:^2.34" "pestphp/pest-plugin-laravel:^2.6" "pestphp/pest-plugin-arch:^2.7" --dev --no-interaction --no-update
+
+      - name: Require Pest 3.x and plugins for Laravel 11+
+        if: "!startsWith(matrix.laravel, '10.')"
+        run: |
+          composer require "pestphp/pest:^3.0" "pestphp/pest-plugin-laravel:^3.0" "pestphp/pest-plugin-arch:^3.0" --dev --no-interaction --no-update
 
       - name: Install all dependencies
         run: |
