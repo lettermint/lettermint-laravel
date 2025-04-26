@@ -43,13 +43,22 @@ LETTERMINT_TOKEN=your-lettermint-token
 
 Or update the `config/lettermint.php` file as needed.
 
-### Adding the transport
+### Add the transport
 
 In your `config/mail.php`, add the Lettermint transport:
 ```php
         'lettermint' => [
             'transport' => 'lettermint',
         ],
+```
+
+### Add the service
+
+In your `config/services.php`, add the Lettermint service:
+```php
+    'lettermint' => [
+        'token' => env('LETTERMINT_TOKEN'),
+    ],
 ```
 
 ## Testing
