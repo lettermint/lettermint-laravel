@@ -31,7 +31,6 @@ jobs:
             testbench: 9.*
           - laravel: 10.*
             testbench: 8.*
-    
 
     name: P${{ matrix.php }} - L${{ matrix.laravel }} - ${{ matrix.stability }} - ${{ matrix.os }}
 
@@ -51,9 +50,20 @@ jobs:
           echo "::add-matcher::${{ runner.tool_cache }}/php.json"
           echo "::add-matcher::${{ runner.tool_cache }}/phpunit.json"
 
-      - name: Install dependencies
+      - name: Require Laravel Framework and Testbench versions
         run: |
           composer require "laravel/framework:${{ matrix.laravel }}" "orchestra/testbench:${{ matrix.testbench }}" --no-interaction --no-update
+
+      - name: Require compatible Pest and pest-plugin-laravel
+        run: |
+          if [[ "${{ matrix.laravel }}" == "10."* ]]; then
+            composer require pestphp/pest:^2.34 pestphp/pest-plugin-laravel:^2.6 pestphp/pest-plugin-arch:^2.7 --dev --no-interaction --no-update
+          else
+            composer require pestphp/pest:^3.0 pestphp/pest-plugin-laravel:^3.0 pestphp/pest-plugin-arch:^3.0 --dev --no-interaction --no-update
+          fi
+
+      - name: Install all dependencies
+        run: |
           composer update --${{ matrix.stability }} --prefer-dist --no-interaction
 
       - name: List Installed Dependencies
