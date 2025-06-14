@@ -35,18 +35,17 @@ This creates a `config/lettermint.php` file where you can add your API token.
 
 ### Setting your API token
 
-Add your Lettermint API credentials in your `.env` file:
+Add your Lettermint API token in your `.env` file:
 
 ```env
 LETTERMINT_TOKEN=your-lettermint-token
-LETTERMINT_ROUTE_ID=your-route-id
 ```
 
 Or update the `config/lettermint.php` file as needed.
 
 ### Add the transport
 
-In your `config/mail.php`, add the Lettermint transport:
+In your `config/mail.php`, set the default option to lettermint:
 ```php
         'lettermint' => [
             'transport' => 'lettermint',
@@ -59,8 +58,18 @@ In your `config/services.php`, add the Lettermint service:
 ```php
     'lettermint' => [
         'token' => env('LETTERMINT_TOKEN'),
-        'route_id' => env('LETTERMINT_ROUTE_ID'),
     ],
+```
+
+### Using Routes
+
+If you would like to specify the Lettermint route that should be used by a given mailer, you may add the `route_id` configuration option to the mailer's configuration array in your `config/mail.php` file:
+
+```php
+'lettermint' => [
+    'transport' => 'lettermint',
+    'route_id' => env('LETTERMINT_ROUTE_ID'),
+],
 ```
 
 ### Multiple mailers with different routes
@@ -72,20 +81,12 @@ You can configure multiple mailers using the same Lettermint transport but with 
 'mailers' => [
     'lettermint_marketing' => [
         'transport' => 'lettermint',
+        'route_id' => env('LETTERMINT_MARKETING_ROUTE_ID'),
     ],
     'lettermint_transactional' => [
         'transport' => 'lettermint',
+        'route_id' => env('LETTERMINT_TRANSACTIONAL_ROUTE_ID'),
     ],
-],
-
-// config/services.php
-'lettermint_marketing' => [
-    'token' => env('LETTERMINT_TOKEN'),
-    'route_id' => env('LETTERMINT_MARKETING_ROUTE_ID'),
-],
-'lettermint_transactional' => [
-    'token' => env('LETTERMINT_TOKEN'),
-    'route_id' => env('LETTERMINT_TRANSACTIONAL_ROUTE_ID'),
 ],
 ```
 
