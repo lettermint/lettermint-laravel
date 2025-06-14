@@ -22,7 +22,7 @@ class LettermintServiceProvider extends PackageServiceProvider
         parent::boot();
 
         Mail::extend('lettermint', function (array $config = []) {
-            return new LettermintTransportFactory($this->app['lettermint'], $config['options'] ?? []);
+            return new LettermintTransportFactory($this->app['lettermint'], $config);
         });
     }
 
