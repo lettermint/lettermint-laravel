@@ -77,19 +77,19 @@ it('passes route_id configuration to transport when using full mail config', fun
     ]);
 
     $manager = app(\Illuminate\Mail\MailManager::class);
-    
+
     // When Laravel's mail manager creates a mailer, it should pass the full config
     $mailer = $manager->mailer('lettermint_broadcast');
     $transport = $mailer->getSymfonyTransport();
-    
+
     expect($transport)->toBeInstanceOf(LettermintTransportFactory::class);
-    
+
     // Use reflection to check if route_id was passed to the transport
     $reflection = new ReflectionClass($transport);
     $configProperty = $reflection->getProperty('config');
     $configProperty->setAccessible(true);
     $config = $configProperty->getValue($transport);
-    
+
     expect($config)->toHaveKey('route_id');
     expect($config['route_id'])->toBe('broadcast');
 });
