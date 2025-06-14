@@ -81,6 +81,10 @@ class LettermintTransportFactory extends AbstractTransport
                 ->bcc(...$this->stringifyAddresses($email->getBcc()))
                 ->replyTo(...$this->stringifyAddresses($email->getReplyTo()));
 
+            if (isset($this->config['route_id']) && $this->config['route_id']) {
+                $builder->route($this->config['route_id']);
+            }
+
             foreach ($attachments as $attachment) {
                 $builder->attach($attachment['filename'], $attachment['content']);
             }
