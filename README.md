@@ -39,6 +39,7 @@ Add your Lettermint API credentials in your `.env` file:
 
 ```env
 LETTERMINT_TOKEN=your-lettermint-token
+LETTERMINT_ROUTE_ID=your-route-id
 ```
 
 Or update the `config/lettermint.php` file as needed.
@@ -58,7 +59,40 @@ In your `config/services.php`, add the Lettermint service:
 ```php
     'lettermint' => [
         'token' => env('LETTERMINT_TOKEN'),
+        'route_id' => env('LETTERMINT_ROUTE_ID'),
     ],
+```
+
+### Multiple mailers with different routes
+
+You can configure multiple mailers using the same Lettermint transport but with different route IDs:
+
+```php
+// config/mail.php
+'mailers' => [
+    'lettermint_marketing' => [
+        'transport' => 'lettermint',
+    ],
+    'lettermint_transactional' => [
+        'transport' => 'lettermint',
+    ],
+],
+
+// config/services.php
+'lettermint_marketing' => [
+    'token' => env('LETTERMINT_TOKEN'),
+    'route_id' => env('LETTERMINT_MARKETING_ROUTE_ID'),
+],
+'lettermint_transactional' => [
+    'token' => env('LETTERMINT_TOKEN'),
+    'route_id' => env('LETTERMINT_TRANSACTIONAL_ROUTE_ID'),
+],
+```
+
+Then use them in your application:
+```php
+Mail::mailer('lettermint_marketing')->to($user)->send(new MarketingEmail());
+Mail::mailer('lettermint_transactional')->to($user)->send(new TransactionalEmail());
 ```
 
 ## Testing

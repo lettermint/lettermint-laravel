@@ -374,3 +374,148 @@ it('throws transport exception on API error', function () {
     expect(fn () => $this->transport->send($email))
         ->toThrow(TransportException::class, 'Sending email via Lettermint API failed: Failed to send email');
 });
+
+it('can send email with route_id', function () {
+    $config = ['route_id' => 'test-route-123'];
+    $transport = new LettermintTransportFactory($this->lettermint, $config);
+
+    $email = (new Email)
+        ->from('from@example.com')
+        ->to(new Address('to@example.com', 'Acme'))
+        ->subject('Hello world!')
+        ->text('This is a Lettermint test mail.')
+        ->html('<p>Test HTML body</p>');
+
+    $this->emailBuilder
+        ->shouldReceive('headers')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('from')
+        ->once()
+        ->with('from@example.com')
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('to')
+        ->once()
+        ->with('"Acme" <to@example.com>')
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('cc')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('bcc')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('replyTo')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('subject')
+        ->once()
+        ->with('Hello world!')
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('text')
+        ->once()
+        ->with('This is a Lettermint test mail.')
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('html')
+        ->once()
+        ->with('<p>Test HTML body</p>')
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('route')
+        ->once()
+        ->with('test-route-123')
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('send')
+        ->once()
+        ->andReturn(['id' => '123', 'status' => 'pending']);
+
+    $transport->send($email);
+});
+
+it('does not call route when route_id is not set', function () {
+    $config = [];
+    $transport = new LettermintTransportFactory($this->lettermint, $config);
+
+    $email = (new Email)
+        ->from('from@example.com')
+        ->to(new Address('to@example.com', 'Acme'))
+        ->subject('Hello world!')
+        ->text('This is a Lettermint test mail.');
+
+    $this->emailBuilder
+        ->shouldReceive('headers')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('from')
+        ->once()
+        ->with('from@example.com')
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('to')
+        ->once()
+        ->with('"Acme" <to@example.com>')
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('cc')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('bcc')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('replyTo')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('subject')
+        ->once()
+        ->with('Hello world!')
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('text')
+        ->once()
+        ->with('This is a Lettermint test mail.')
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('html')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldNotReceive('route');
+
+    $this->emailBuilder
+        ->shouldReceive('send')
+        ->once()
+        ->andReturn(['id' => '123', 'status' => 'pending']);
+
+    $transport->send($email);
+});
