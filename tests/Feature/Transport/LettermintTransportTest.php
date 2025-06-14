@@ -519,3 +519,29 @@ it('does not call route when route_id is not set', function () {
 
     $transport->send($email);
 });
+
+it('uses route_id from mailer config via mail manager', function () {
+    $app = app();
+
+    $app['config']->set('lettermint', [
+        'token' => 'test_token_12345',
+    ]);
+
+    $manager = $app->get(MailManager::class);
+
+    $transport = $manager->createSymfonyTransport([
+        'transport' => 'lettermint',
+        'route_id' => 'broadcast',
+    ]);
+
+    expect((string) $transport)->toBe('lettermint');
+    
+    // Test that the transport has the correct config
+    $reflection = new ReflectionClass($transport);
+    $configProperty = $reflection->getProperty('config');
+    $configProperty->setAccessible(true);
+    $config = $configProperty->getValue($transport);
+    
+    expect($config)->toHaveKey('route_id');
+    expect($config['route_id'])->toBe('broadcast');
+});
