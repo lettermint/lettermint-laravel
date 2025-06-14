@@ -535,13 +535,13 @@ it('uses route_id from mailer config via mail manager', function () {
     ]);
 
     expect((string) $transport)->toBe('lettermint');
-    
+
     // Test that the transport has the correct config
     $reflection = new ReflectionClass($transport);
     $configProperty = $reflection->getProperty('config');
     $configProperty->setAccessible(true);
     $config = $configProperty->getValue($transport);
-    
+
     expect($config)->toHaveKey('route_id');
     expect($config['route_id'])->toBe('broadcast');
 });
