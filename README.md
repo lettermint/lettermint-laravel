@@ -108,7 +108,8 @@ You can configure idempotency behavior per mailer in your `config/mail.php`:
 'mailers' => [
     'lettermint' => [
         'transport' => 'lettermint',
-        'idempotency' => true, // Default: automatic using Message-ID
+        'idempotency' => true, // Enable automatic content-based idempotency
+        'idempotency_window' => 86400, // Window in seconds (default: 24 hours)
     ],
     'lettermint_marketing' => [
         'transport' => 'lettermint',
@@ -120,15 +121,25 @@ You can configure idempotency behavior per mailer in your `config/mail.php`:
 
 #### Idempotency Options:
 
-- **`true`**: Uses the email's Message-ID as the idempotency key automatically
-- **`false` (default)**: Disables automatic idempotency for this mailer (user headers still work)
+- **`idempotency`**: Enable/disable automatic content-based idempotency
+  - `true`: Generates idempotency keys based on email content
+  - `false` (default): Disables automatic idempotency (user headers still work)
+- **`idempotency_window`**: Time window in seconds for deduplication
+  - Default: `86400` (24 hours to match Lettermint API retention)
+  - Set to match your needs (e.g., `3600` for 1 hour, `300` for 5 minutes)
+  - When set to `86400` or higher, emails with identical content are permanently deduplicated within the API retention period
 
 ### Automatic Idempotency
 
-When `idempotency` is `true`, the driver uses the email's Message-ID:
-- If the same email object is sent multiple times, only the first send will be delivered
+When `idempotency` is `true`, the driver generates a unique key based on:
+- Email subject, recipients (to, cc, bcc), and content
+- Sender address (to differentiate between different sending contexts)
+- Time window (if less than 24 hours)
+
+This ensures:
+- Identical emails are only sent once within the configured time window
 - Retried queue jobs won't create duplicate emails
-- No additional configuration is required
+- Different emails or the same email after the time window will be sent normally
 
 ### Custom Idempotency Keys
 

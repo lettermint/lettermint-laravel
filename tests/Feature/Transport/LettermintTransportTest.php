@@ -899,3 +899,216 @@ it('respects user-provided idempotency header even when config disables idempote
 
     $transport->send($email);
 });
+
+it('generates idempotency key with default 24-hour window', function () {
+    $config = ['idempotency' => true]; // Enable automatic idempotency with default window
+    $transport = new LettermintTransportFactory($this->lettermint, $config);
+
+    $email = (new Email)
+        ->from('from@example.com')
+        ->to('to@example.com')
+        ->subject('Hello world!')
+        ->text('This is a test mail.');
+
+    $this->emailBuilder
+        ->shouldReceive('headers')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('from')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('to')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('subject')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('text')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('html')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('cc')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('bcc')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('replyTo')
+        ->once()
+        ->andReturnSelf();
+
+    // Should call idempotencyKey with generated hash (no timestamp for 24h+ window)
+    $this->emailBuilder
+        ->shouldReceive('idempotencyKey')
+        ->once()
+        ->with(Mockery::type('string'))
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('send')
+        ->once()
+        ->andReturn(['id' => '123', 'status' => 'pending']);
+
+    $transport->send($email);
+});
+
+it('generates idempotency key with custom window', function () {
+    $config = ['idempotency' => true, 'idempotency_window' => 3600]; // 1 hour window
+    $transport = new LettermintTransportFactory($this->lettermint, $config);
+
+    $email = (new Email)
+        ->from('from@example.com')
+        ->to('to@example.com')
+        ->subject('Hello world!')
+        ->text('This is a test mail.');
+
+    $this->emailBuilder
+        ->shouldReceive('headers')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('from')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('to')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('subject')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('text')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('html')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('cc')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('bcc')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('replyTo')
+        ->once()
+        ->andReturnSelf();
+
+    // Should call idempotencyKey with generated hash (includes timestamp for <24h window)
+    $this->emailBuilder
+        ->shouldReceive('idempotencyKey')
+        ->once()
+        ->with(Mockery::type('string'))
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('send')
+        ->once()
+        ->andReturn(['id' => '123', 'status' => 'pending']);
+
+    $transport->send($email);
+});
+
+it('custom idempotency header overrides window configuration', function () {
+    $config = ['idempotency' => true, 'idempotency_window' => 300]; // 5 minutes
+    $transport = new LettermintTransportFactory($this->lettermint, $config);
+
+    $email = (new Email)
+        ->from('from@example.com')
+        ->to('to@example.com')
+        ->subject('Hello world!')
+        ->text('This is a test mail.');
+
+    // Add custom idempotency key header
+    $email->getHeaders()->addHeader('Idempotency-Key', 'custom-override');
+
+    $this->emailBuilder
+        ->shouldReceive('headers')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('from')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('to')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('subject')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('text')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('html')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('cc')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('bcc')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('replyTo')
+        ->once()
+        ->andReturnSelf();
+
+    // Should use custom key, not generated one
+    $this->emailBuilder
+        ->shouldReceive('idempotencyKey')
+        ->once()
+        ->with('custom-override')
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('send')
+        ->once()
+        ->andReturn(['id' => '123', 'status' => 'pending']);
+
+    $transport->send($email);
+});

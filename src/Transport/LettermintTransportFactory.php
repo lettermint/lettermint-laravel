@@ -122,13 +122,32 @@ class LettermintTransportFactory extends AbstractTransport
             return;
         }
 
-        // Use Message-ID as automatic idempotency key
-        $messageId = $email->getHeaders()->get('Message-ID');
-        if ($messageId) {
-            // Message-ID might be an IdentificationHeader (with getId()) or TextHeader (with getBodyAsString())
-            $idValue = method_exists($messageId, 'getId') ? $messageId->getId() : $messageId->getBodyAsString();
-            $builder->idempotencyKey($idValue);
+        // Get idempotency window in seconds (default: 24 hours to match API retention)
+        $idempotencyWindow = $this->config['idempotency_window'] ?? 86400; // 24 hours in seconds
+
+        // Generate stable idempotency key based on email content
+        // This ensures the same email content always generates the same key,
+        // making it safe for retries in queue workers
+        $keyParts = [
+            $email->getSubject() ?? '',
+            implode(',', $this->stringifyAddresses($email->getTo())),
+            implode(',', $this->stringifyAddresses($email->getCc())),
+            implode(',', $this->stringifyAddresses($email->getBcc())),
+            $email->getHtmlBody() ?? $email->getTextBody() ?? '',
+            // Include sender to differentiate between different sending contexts
+            $email->getFrom() ? $this->stringifyAddresses($email->getFrom())[0] ?? '' : '',
+        ];
+
+        // Only include timestamp if window is less than 24 hours
+        // This allows permanent deduplication when window matches API retention
+        if ($idempotencyWindow < 86400) {
+            // Include timestamp rounded to the configured window
+            $keyParts[] = floor(time() / $idempotencyWindow);
         }
+
+        // Generate SHA256 hash of the content for the idempotency key
+        $idempotencyKey = hash('sha256', implode('|', array_filter($keyParts)));
+        $builder->idempotencyKey($idempotencyKey);
     }
 
     protected function getRecipients(Email $email, Envelope $envelope): array
