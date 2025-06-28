@@ -2,6 +2,15 @@
 
 All notable changes to `lettermint-laravel` will be documented in this file.
 
+## 1.1.0 - 2025-06-28
+
+### What's Changed
+
+* chore(deps): bump stefanzweifel/git-auto-commit-action from 5 to 6 by @dependabot in https://github.com/lettermint/lettermint-laravel/pull/4
+* feat: add idempotency support to Lettermint transport by @bjarn in https://github.com/lettermint/lettermint-laravel/pull/5
+
+**Full Changelog**: https://github.com/lettermint/lettermint-laravel/compare/1.0.2...1.1.0
+
 ## 1.0.2 - 2025-06-14
 
 ### What's Changed
