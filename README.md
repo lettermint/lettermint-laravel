@@ -96,6 +96,59 @@ Mail::mailer('lettermint_marketing')->to($user)->send(new MarketingEmail());
 Mail::mailer('lettermint_transactional')->to($user)->send(new TransactionalEmail());
 ```
 
+## Idempotency Support
+
+The Lettermint Laravel driver prevents duplicate email sends by using idempotency keys. This is especially useful when emails are sent from queued jobs that might be retried.
+
+### Configuration Options
+
+You can configure idempotency behavior per mailer in your `config/mail.php`:
+
+```php
+'mailers' => [
+    'lettermint' => [
+        'transport' => 'lettermint',
+        'idempotency' => true, // Default: automatic using Message-ID
+    ],
+    'lettermint_marketing' => [
+        'transport' => 'lettermint',
+        'route_id' => 'marketing',
+        'idempotency' => false, // Disable automatic idempotency
+    ],
+],
+```
+
+#### Idempotency Options:
+
+- **`true`**: Uses the email's Message-ID as the idempotency key automatically
+- **`false` (default)**: Disables automatic idempotency for this mailer (user headers still work)
+
+### Automatic Idempotency
+
+When `idempotency` is `true`, the driver uses the email's Message-ID:
+- If the same email object is sent multiple times, only the first send will be delivered
+- Retried queue jobs won't create duplicate emails
+- No additional configuration is required
+
+### Custom Idempotency Keys
+
+You can override any configuration by setting a custom idempotency key in the email headers:
+
+```php
+Mail::send('emails.welcome', $data, function ($message) {
+    $message->to('user@example.com')
+        ->subject('Welcome!')
+        ->getHeaders()->addTextHeader('Idempotency-Key', 'welcome-user-123');
+});
+```
+
+**Priority order** (highest to lowest):
+1. `Idempotency-Key` header in the email (always respected, overrides any config)
+2. Automatic Message-ID (if `idempotency` is `true`)
+3. No idempotency (if `idempotency` is `false`)
+
+**Important:** The `idempotency: false` configuration only disables *automatic* idempotency. User-provided `Idempotency-Key` headers are always respected, giving users full control on a per-email basis.
+
 ## Testing
 
 ```bash

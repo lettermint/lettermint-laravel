@@ -3,6 +3,7 @@
 namespace Lettermint\Laravel\Transport;
 
 use Exception;
+use Lettermint\Endpoints\EmailEndpoint;
 use Symfony\Component\Mailer\Envelope;
 use Symfony\Component\Mailer\Exception\TransportException;
 use Symfony\Component\Mailer\SentMessage;
@@ -22,6 +23,7 @@ class LettermintTransportFactory extends AbstractTransport
         'content-type',
         'sender',
         'reply-to',
+        'idempotency-key',
     ];
 
     /**
@@ -85,6 +87,9 @@ class LettermintTransportFactory extends AbstractTransport
                 $builder->route($this->config['route_id']);
             }
 
+            // Handle idempotency based on configuration
+            $this->handleIdempotency($builder, $email);
+
             foreach ($attachments as $attachment) {
                 $builder->attach($attachment['filename'], $attachment['content']);
             }
@@ -96,6 +101,33 @@ class LettermintTransportFactory extends AbstractTransport
                 is_int($exception->getCode()) ? $exception->getCode() : 0,
                 $exception
             );
+        }
+    }
+
+    protected function handleIdempotency(EmailEndpoint $builder, Email $email): void
+    {
+        // Always check for custom idempotency key in headers first - this overrides any config
+        $customIdempotencyKey = $email->getHeaders()->get('Idempotency-Key');
+        if ($customIdempotencyKey) {
+            $builder->idempotencyKey($customIdempotencyKey->getBodyAsString());
+
+            return;
+        }
+
+        // Check if automatic idempotency is enabled (default: false)
+        $automaticIdempotency = $this->config['idempotency'] ?? false;
+
+        if ($automaticIdempotency !== true) {
+            // Automatic idempotency disabled for this mailer
+            return;
+        }
+
+        // Use Message-ID as automatic idempotency key
+        $messageId = $email->getHeaders()->get('Message-ID');
+        if ($messageId) {
+            // Message-ID might be an IdentificationHeader (with getId()) or TextHeader (with getBodyAsString())
+            $idValue = method_exists($messageId, 'getId') ? $messageId->getId() : $messageId->getBodyAsString();
+            $builder->idempotencyKey($idValue);
         }
     }
 
