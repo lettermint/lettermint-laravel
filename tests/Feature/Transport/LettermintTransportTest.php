@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Mail\MailManager;
+use Lettermint\Endpoints\EmailEndpoint;
 use Lettermint\Laravel\Transport\LettermintTransportFactory;
 use Symfony\Component\Mailer\Exception\TransportException;
 use Symfony\Component\Mime\Address;
@@ -10,7 +11,7 @@ beforeEach(function () {
     config()->set('services.lettermint.token', 'test-token');
 
     $this->lettermint = Mockery::mock(\Lettermint\Lettermint::class);
-    $this->emailBuilder = Mockery::mock();
+    $this->emailBuilder = Mockery::mock(EmailEndpoint::class);
     $this->lettermint->email = $this->emailBuilder;
     $this->transport = new LettermintTransportFactory($this->lettermint);
 });
