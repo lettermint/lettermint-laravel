@@ -545,3 +545,356 @@ it('uses route_id from mailer config via mail manager', function () {
     expect($config)->toHaveKey('route_id');
     expect($config['route_id'])->toBe('broadcast');
 });
+
+it('uses custom idempotency key when Idempotency-Key header is set', function () {
+    $email = (new Email)
+        ->from('from@example.com')
+        ->to('to@example.com')
+        ->subject('Hello world!')
+        ->text('This is a test mail.');
+
+    // Add custom idempotency key header
+    $email->getHeaders()->addHeader('Idempotency-Key', 'custom-key-123');
+
+    $this->emailBuilder
+        ->shouldReceive('headers')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('from')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('to')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('subject')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('text')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('html')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('cc')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('bcc')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('replyTo')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('idempotencyKey')
+        ->once()
+        ->with('custom-key-123')
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('send')
+        ->once()
+        ->andReturn(['id' => '123', 'status' => 'pending']);
+
+    $this->transport->send($email);
+});
+
+it('does not include Idempotency-Key in headers sent to API', function () {
+    $email = (new Email)
+        ->from('from@example.com')
+        ->to('to@example.com')
+        ->subject('Hello world!')
+        ->text('This is a test mail.');
+
+    // Add custom header
+    $email->getHeaders()->addHeader('Idempotency-Key', 'custom-key-123');
+    $email->getHeaders()->addHeader('X-Custom-Header', 'test-value');
+
+    $this->emailBuilder
+        ->shouldReceive('headers')
+        ->once()
+        ->with(['X-Custom-Header' => 'test-value']) // Should not include Idempotency-Key
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('from')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('to')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('subject')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('text')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('html')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('cc')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('bcc')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('replyTo')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('idempotencyKey')
+        ->once()
+        ->with('custom-key-123')
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('send')
+        ->once()
+        ->andReturn(['id' => '123', 'status' => 'pending']);
+
+    $this->transport->send($email);
+});
+
+it('can disable idempotency via configuration', function () {
+    $config = ['idempotency' => false];
+    $transport = new LettermintTransportFactory($this->lettermint, $config);
+
+    $email = (new Email)
+        ->from('from@example.com')
+        ->to('to@example.com')
+        ->subject('Hello world\!')
+        ->text('This is a test mail.');
+
+    $this->emailBuilder
+        ->shouldReceive('headers')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('from')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('to')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('subject')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('text')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('html')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('cc')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('bcc')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('replyTo')
+        ->once()
+        ->andReturnSelf();
+
+    // Should NOT call idempotencyKey when disabled
+    $this->emailBuilder
+        ->shouldNotReceive('idempotencyKey');
+
+    $this->emailBuilder
+        ->shouldReceive('send')
+        ->once()
+        ->andReturn(['id' => '123', 'status' => 'pending']);
+
+    $transport->send($email);
+});
+
+it('header idempotency key works with automatic idempotency enabled', function () {
+    $config = ['idempotency' => true]; // Automatic idempotency enabled
+    $transport = new LettermintTransportFactory($this->lettermint, $config);
+
+    $email = (new Email)
+        ->from('from@example.com')
+        ->to('to@example.com')
+        ->subject('Hello world\!')
+        ->text('This is a test mail.');
+
+    // Add header idempotency key
+    $email->getHeaders()->addHeader('Idempotency-Key', 'header-key-789');
+
+    $this->emailBuilder
+        ->shouldReceive('headers')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('from')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('to')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('subject')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('text')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('html')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('cc')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('bcc')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('replyTo')
+        ->once()
+        ->andReturnSelf();
+
+    // Should use header key instead of automatic Message-ID
+    $this->emailBuilder
+        ->shouldReceive('idempotencyKey')
+        ->once()
+        ->with('header-key-789')
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('send')
+        ->once()
+        ->andReturn(['id' => '123', 'status' => 'pending']);
+
+    $transport->send($email);
+});
+
+it('respects user-provided idempotency header even when config disables idempotency', function () {
+    $config = ['idempotency' => false]; // Disable automatic idempotency
+    $transport = new LettermintTransportFactory($this->lettermint, $config);
+
+    $email = (new Email)
+        ->from('from@example.com')
+        ->to('to@example.com')
+        ->subject('Hello world\!')
+        ->text('This is a test mail.');
+
+    // Add user-provided idempotency key header
+    $email->getHeaders()->addHeader('Idempotency-Key', 'user-override-key');
+
+    $this->emailBuilder
+        ->shouldReceive('headers')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('from')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('to')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('subject')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('text')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('html')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('cc')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('bcc')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('replyTo')
+        ->once()
+        ->andReturnSelf();
+
+    // Should use the user-provided key despite config being false
+    $this->emailBuilder
+        ->shouldReceive('idempotencyKey')
+        ->once()
+        ->with('user-override-key')
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('send')
+        ->once()
+        ->andReturn(['id' => '123', 'status' => 'pending']);
+
+    $transport->send($email);
+});
