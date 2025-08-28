@@ -164,11 +164,13 @@ class LettermintTransportFactory extends AbstractTransport
         foreach ($email->getHeaders()->all() as $header) {
             if ($header instanceof TagHeader) {
                 $tag = $header->getValue();
+
                 continue;
             }
 
             if ($header instanceof MetadataHeader) {
                 $metadata[$header->getKey()] = $header->getValue();
+
                 continue;
             }
         }
