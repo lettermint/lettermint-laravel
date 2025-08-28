@@ -6,6 +6,8 @@ use Exception;
 use Lettermint\Endpoints\EmailEndpoint;
 use Symfony\Component\Mailer\Envelope;
 use Symfony\Component\Mailer\Exception\TransportException;
+use Symfony\Component\Mailer\Header\MetadataHeader;
+use Symfony\Component\Mailer\Header\TagHeader;
 use Symfony\Component\Mailer\SentMessage;
 use Symfony\Component\Mailer\Transport\AbstractTransport;
 use Symfony\Component\Mime\Address;
@@ -24,6 +26,7 @@ class LettermintTransportFactory extends AbstractTransport
         'sender',
         'reply-to',
         'idempotency-key',
+        'x-lm-tag',
     ];
 
     /**
@@ -90,6 +93,9 @@ class LettermintTransportFactory extends AbstractTransport
             // Handle idempotency based on configuration
             $this->handleIdempotency($builder, $email);
 
+            // Handle tags and metadata
+            $this->handleTagsAndMetadata($builder, $email);
+
             foreach ($attachments as $attachment) {
                 $builder->attach($attachment['filename'], $attachment['content']);
             }
@@ -148,6 +154,42 @@ class LettermintTransportFactory extends AbstractTransport
         // Generate SHA256 hash of the content for the idempotency key
         $idempotencyKey = hash('sha256', implode('|', array_filter($keyParts)));
         $builder->idempotencyKey($idempotencyKey);
+    }
+
+    protected function handleTagsAndMetadata(EmailEndpoint $builder, Email $email): void
+    {
+        $tag = null;
+        $metadata = [];
+
+        foreach ($email->getHeaders()->all() as $header) {
+            if ($header instanceof TagHeader) {
+                $tag = $header->getValue();
+                continue;
+            }
+
+            if ($header instanceof MetadataHeader) {
+                $metadata[$header->getKey()] = $header->getValue();
+                continue;
+            }
+        }
+
+        // Fallback: Check for X-LM-Tag header for backward compatibility
+        if ($tag === null) {
+            $customTagHeader = $email->getHeaders()->get('X-LM-Tag');
+            if ($customTagHeader) {
+                $tag = $customTagHeader->getBodyAsString();
+            }
+        }
+
+        // Apply tag if found
+        if ($tag !== null) {
+            $builder->tag($tag);
+        }
+
+        // Apply metadata if any exists
+        if (! empty($metadata)) {
+            $builder->metadata($metadata);
+        }
     }
 
     protected function getRecipients(Email $email, Envelope $envelope): array

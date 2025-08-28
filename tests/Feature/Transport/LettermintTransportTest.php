@@ -4,6 +4,8 @@ use Illuminate\Mail\MailManager;
 use Lettermint\Endpoints\EmailEndpoint;
 use Lettermint\Laravel\Transport\LettermintTransportFactory;
 use Symfony\Component\Mailer\Exception\TransportException;
+use Symfony\Component\Mailer\Header\MetadataHeader;
+use Symfony\Component\Mailer\Header\TagHeader;
 use Symfony\Component\Mime\Address;
 use Symfony\Component\Mime\Email;
 
@@ -1111,4 +1113,430 @@ it('custom idempotency header overrides window configuration', function () {
         ->andReturn(['id' => '123', 'status' => 'pending']);
 
     $transport->send($email);
+});
+
+it('can send email with tag using TagHeader', function () {
+    $email = (new Email)
+        ->from('from@example.com')
+        ->to('to@example.com')
+        ->subject('Hello world!')
+        ->text('This is a test mail.');
+
+    $email->getHeaders()->add(new TagHeader('welcome-email'));
+
+    $this->emailBuilder
+        ->shouldReceive('headers')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('from')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('to')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('subject')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('text')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('html')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('cc')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('bcc')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('replyTo')
+        ->once()
+        ->andReturnSelf();
+
+    // Should call tag method
+    $this->emailBuilder
+        ->shouldReceive('tag')
+        ->once()
+        ->with('welcome-email')
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('send')
+        ->once()
+        ->andReturn(['id' => '123', 'status' => 'pending']);
+
+    $this->transport->send($email);
+});
+
+it('can send email with metadata using MetadataHeader', function () {
+    $email = (new Email)
+        ->from('from@example.com')
+        ->to('to@example.com')
+        ->subject('Hello world!')
+        ->text('This is a test mail.');
+
+    $email->getHeaders()->add(new MetadataHeader('user_id', '12345'));
+    $email->getHeaders()->add(new MetadataHeader('campaign', 'summer-sale'));
+
+    $this->emailBuilder
+        ->shouldReceive('headers')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('from')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('to')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('subject')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('text')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('html')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('cc')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('bcc')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('replyTo')
+        ->once()
+        ->andReturnSelf();
+
+    // Should call metadata method with all metadata
+    $this->emailBuilder
+        ->shouldReceive('metadata')
+        ->once()
+        ->with(['user_id' => '12345', 'campaign' => 'summer-sale'])
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('send')
+        ->once()
+        ->andReturn(['id' => '123', 'status' => 'pending']);
+
+    $this->transport->send($email);
+});
+
+it('can send email with tag using X-LM-Tag header for backward compatibility', function () {
+    $email = (new Email)
+        ->from('from@example.com')
+        ->to('to@example.com')
+        ->subject('Hello world!')
+        ->text('This is a test mail.');
+
+    // Add tag using custom header (backward compatibility)
+    $email->getHeaders()->addHeader('X-LM-Tag', 'tti-test');
+
+    $this->emailBuilder
+        ->shouldReceive('headers')
+        ->once()
+        ->with([]) // X-LM-Tag should be bypassed
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('from')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('to')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('subject')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('text')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('html')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('cc')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('bcc')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('replyTo')
+        ->once()
+        ->andReturnSelf();
+
+    // Should call tag method with the custom header value
+    $this->emailBuilder
+        ->shouldReceive('tag')
+        ->once()
+        ->with('tti-test')
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('send')
+        ->once()
+        ->andReturn(['id' => '123', 'status' => 'pending']);
+
+    $this->transport->send($email);
+});
+
+it('prefers TagHeader over X-LM-Tag when both are present', function () {
+    $email = (new Email)
+        ->from('from@example.com')
+        ->to('to@example.com')
+        ->subject('Hello world!')
+        ->text('This is a test mail.');
+
+    // Add both headers - TagHeader should take precedence
+    $email->getHeaders()->add(new TagHeader('primary-tag'));
+    $email->getHeaders()->addHeader('X-LM-Tag', 'fallback-tag');
+
+    $this->emailBuilder
+        ->shouldReceive('headers')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('from')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('to')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('subject')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('text')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('html')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('cc')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('bcc')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('replyTo')
+        ->once()
+        ->andReturnSelf();
+
+    // Should use the primary TagHeader value, not the fallback
+    $this->emailBuilder
+        ->shouldReceive('tag')
+        ->once()
+        ->with('primary-tag')
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('send')
+        ->once()
+        ->andReturn(['id' => '123', 'status' => 'pending']);
+
+    $this->transport->send($email);
+});
+
+it('can send email with both tag and metadata', function () {
+    $email = (new Email)
+        ->from('from@example.com')
+        ->to('to@example.com')
+        ->subject('Hello world!')
+        ->text('This is a test mail.');
+
+    // Add both tag and metadata
+    $email->getHeaders()->add(new TagHeader('user-notification'));
+    $email->getHeaders()->add(new MetadataHeader('user_id', '67890'));
+    $email->getHeaders()->add(new MetadataHeader('notification_type', 'password_reset'));
+
+    $this->emailBuilder
+        ->shouldReceive('headers')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('from')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('to')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('subject')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('text')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('html')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('cc')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('bcc')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('replyTo')
+        ->once()
+        ->andReturnSelf();
+
+    // Should call both tag and metadata methods
+    $this->emailBuilder
+        ->shouldReceive('tag')
+        ->once()
+        ->with('user-notification')
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('metadata')
+        ->once()
+        ->with(['user_id' => '67890', 'notification_type' => 'password_reset'])
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('send')
+        ->once()
+        ->andReturn(['id' => '123', 'status' => 'pending']);
+
+    $this->transport->send($email);
+});
+
+it('does not call tag or metadata methods when not provided', function () {
+    $email = (new Email)
+        ->from('from@example.com')
+        ->to('to@example.com')
+        ->subject('Hello world!')
+        ->text('This is a test mail.');
+
+    $this->emailBuilder
+        ->shouldReceive('headers')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('from')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('to')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('subject')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('text')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('html')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('cc')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('bcc')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('replyTo')
+        ->once()
+        ->andReturnSelf();
+
+    // Should NOT call tag or metadata methods
+    $this->emailBuilder
+        ->shouldNotReceive('tag');
+
+    $this->emailBuilder
+        ->shouldNotReceive('metadata');
+
+    $this->emailBuilder
+        ->shouldReceive('send')
+        ->once()
+        ->andReturn(['id' => '123', 'status' => 'pending']);
+
+    $this->transport->send($email);
 });
