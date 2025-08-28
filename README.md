@@ -160,6 +160,127 @@ Mail::send('emails.welcome', $data, function ($message) {
 
 **Important:** The `idempotency: false` configuration only disables *automatic* idempotency. User-provided `Idempotency-Key` headers are always respected, giving users full control on a per-email basis.
 
+## Tags and Metadata
+
+The Lettermint Laravel driver supports adding tags and metadata to your emails for better organization, tracking, and analytics.
+
+### Using Tags
+
+Tags help you categorize and filter your emails in the Lettermint dashboard. You can add tags using Laravel's native mailable methods:
+
+#### Method 1: Using Laravel's tag() method (Recommended)
+
+```php
+use App\Mail\WelcomeEmail;
+use Illuminate\Support\Facades\Mail;
+
+Mail::send((new WelcomeEmail($user))
+    ->tag('onboarding')
+);
+```
+
+#### Method 2: Using the envelope method in your Mailable
+
+```php
+use Illuminate\Mail\Mailables\Envelope;
+
+class WelcomeEmail extends Mailable
+{
+    public function envelope(): Envelope
+    {
+        return new Envelope(
+            subject: 'Welcome to our platform!',
+            tags: ['onboarding'], // Only one tag is allowed
+        );
+    }
+}
+```
+
+#### Method 3: Using custom header (backward compatibility)
+
+To minimise confusion with the way of tagging emails sent via the SMTP relay, the Lettermint Laravel driver also supports the `X-LM-Tag` header.
+This will be converted to the `TagHeader` envelope method automatically.
+
+```php
+use Illuminate\Mail\Mailables\Headers;
+
+class WelcomeEmail extends Mailable
+{
+    public function headers(): Headers
+    {
+        return new Headers(
+            text: [
+                'X-LM-Tag' => 'onboarding',
+            ],
+        );
+    }
+}
+```
+
+### Using Metadata
+
+Metadata allows you to attach custom key-value pairs to your emails for enhanced tracking and analytics:
+
+#### Method 1: Using Laravel's metadata() method (Recommended)
+
+```php
+Mail::send((new OrderConfirmation($order))
+    ->metadata('order_id', $order->id)
+    ->metadata('customer_id', $order->customer_id)
+);
+```
+
+#### Method 2: Using the envelope method
+
+```php
+public function envelope(): Envelope
+{
+    return new Envelope(
+        subject: 'Order Confirmation',
+        metadata: [
+            'order_id' => $this->order->id,
+            'customer_id' => $this->order->customer_id,
+            'order_total' => $this->order->total,
+        ],
+    );
+}
+```
+
+### Combining Tags and Metadata
+
+You can use both tags and metadata together:
+
+```php
+Mail::send((new OrderShipped($order))
+    ->tag('transactional')
+    ->metadata('order_id', $order->id)
+    ->metadata('tracking_number', $order->tracking_number)
+);
+```
+
+Or in your mailable:
+
+```php
+public function envelope(): Envelope
+{
+    return new Envelope(
+        subject: 'Your order has shipped!',
+        tags: ['transactional', 'shipping'],
+        metadata: [
+            'order_id' => $this->order->id,
+            'tracking_number' => $this->order->tracking_number,
+            'carrier' => $this->order->carrier,
+        ],
+    );
+}
+```
+
+### Note on Compatibility
+
+- The driver supports Laravel's native `tag()` and `metadata()` methods (Laravel 9+)
+- The `X-LM-Tag` header is supported for backward compatibility
+- When both `TagHeader` and `X-LM-Tag` are present, the `TagHeader` takes precedence
+
 ## Testing
 
 ```bash
