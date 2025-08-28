@@ -2,6 +2,14 @@
 
 All notable changes to `lettermint-laravel` will be documented in this file.
 
+## v1.2.0 - 2025-08-28
+
+### What's Changed
+
+* feat: add tag and metadata support to Lettermint transport by @bjarn in https://github.com/lettermint/lettermint-laravel/pull/8
+
+**Full Changelog**: https://github.com/lettermint/lettermint-laravel/compare/1.1.1...1.2.0
+
 ## 1.1.1 - 2025-06-28
 
 **Full Changelog**: https://github.com/lettermint/lettermint-laravel/compare/1.1.0...1.1.1
