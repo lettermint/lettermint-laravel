@@ -2,6 +2,14 @@
 
 All notable changes to `lettermint-laravel` will be documented in this file.
 
+## 1.3.0 - 2025-10-07
+
+### What's Changed
+
+* feat: add inline attachment support to Lettermint transport by @bjarn in https://github.com/lettermint/lettermint-laravel/pull/9
+
+**Full Changelog**: https://github.com/lettermint/lettermint-laravel/compare/1.2.0...1.3.0
+
 ## v1.2.0 - 2025-08-28
 
 ### What's Changed
