@@ -306,7 +306,84 @@ it('can send with attachments', function () {
     $this->emailBuilder
         ->shouldReceive('attach')
         ->once()
-        ->with('test.txt', $content)
+        ->with('test.txt', $content, null)
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('send')
+        ->once()
+        ->andReturn(['id' => '123', 'status' => 'pending']);
+
+    $this->transport->send($email);
+});
+
+it('can send with inline attachments', function () {
+    $email = (new Email)
+        ->from('from@example.com')
+        ->to(new Address('to@example.com', 'Acme'))
+        ->subject('Hello world!')
+        ->html('<img src="cid:logo@example.com">');
+
+    $content = base64_encode('image-data');
+
+    $image = new \Symfony\Component\Mime\Part\DataPart('image-data', 'logo.png', 'image/png');
+    $image->asInline();
+    $image->setContentId('logo@example.com');
+    $email->addPart($image);
+
+    $this->emailBuilder
+        ->shouldReceive('headers')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('from')
+        ->once()
+        ->with('from@example.com')
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('to')
+        ->once()
+        ->with('"Acme" <to@example.com>')
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('subject')
+        ->once()
+        ->with('Hello world!')
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('text')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('html')
+        ->once()
+        ->with('<img src="cid:logo@example.com">')
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('cc')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('bcc')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('replyTo')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('attach')
+        ->once()
+        ->with('logo.png', $content, 'logo@example.com')
         ->andReturnSelf();
 
     $this->emailBuilder

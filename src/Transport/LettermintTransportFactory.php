@@ -70,6 +70,11 @@ class LettermintTransportFactory extends AbstractTransport
                     'content_type' => $attachmentHeaders->get('Content-Type')->getBody(),
                 ];
 
+                $contentId = $attachmentHeaders->get('Content-ID');
+                if ($contentId) {
+                    $item['content_id'] = trim($contentId->getBodyAsString(), '<>');
+                }
+
                 $attachments[] = $item;
             }
         }
@@ -97,7 +102,11 @@ class LettermintTransportFactory extends AbstractTransport
             $this->handleTagsAndMetadata($builder, $email);
 
             foreach ($attachments as $attachment) {
-                $builder->attach($attachment['filename'], $attachment['content']);
+                $builder->attach(
+                    $attachment['filename'],
+                    $attachment['content'],
+                    $attachment['content_id'] ?? null
+                );
             }
 
             $result = $builder->send();
