@@ -2,6 +2,14 @@
 
 All notable changes to `lettermint-laravel` will be documented in this file.
 
+## 1.4.0 - 2025-11-16
+
+### What's Changed
+
+* feat: format and set Message-ID from Lettermint API by @bjarn in https://github.com/lettermint/lettermint-laravel/pull/11
+
+**Full Changelog**: https://github.com/lettermint/lettermint-laravel/compare/1.3.0...1.4.0
+
 ## 1.3.0 - 2025-10-07
 
 ### What's Changed
