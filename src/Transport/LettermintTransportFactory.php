@@ -4,6 +4,7 @@ namespace Lettermint\Laravel\Transport;
 
 use Exception;
 use Lettermint\Endpoints\EmailEndpoint;
+use LogicException;
 use Symfony\Component\Mailer\Envelope;
 use Symfony\Component\Mailer\Exception\TransportException;
 use Symfony\Component\Mailer\Header\MetadataHeader;
@@ -12,6 +13,7 @@ use Symfony\Component\Mailer\SentMessage;
 use Symfony\Component\Mailer\Transport\AbstractTransport;
 use Symfony\Component\Mime\Address;
 use Symfony\Component\Mime\Email;
+use Symfony\Component\Mime\Message;
 use Symfony\Component\Mime\MessageConverter;
 
 class LettermintTransportFactory extends AbstractTransport
@@ -44,8 +46,13 @@ class LettermintTransportFactory extends AbstractTransport
      */
     protected function doSend(SentMessage $message): void
     {
-        /** @var \Symfony\Component\Mime\Email $email */
-        $email = MessageConverter::toEmail($message->getOriginalMessage());
+        $original = $message->getOriginalMessage();
+
+        if (! $original instanceof Message) {
+            throw new LogicException('Lettermint transport requires a Message instance, RawMessage given.');
+        }
+
+        $email = MessageConverter::toEmail($original);
         $envelope = $message->getEnvelope();
 
         $headers = [];
