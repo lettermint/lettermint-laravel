@@ -44,9 +44,8 @@ class LettermintTransportFactory extends AbstractTransport
      */
     protected function doSend(SentMessage $message): void
     {
-        /** @var \Symfony\Component\Mime\Message $original */
-        $original = $message->getOriginalMessage();
-        $email = MessageConverter::toEmail($original);
+        /** @var \Symfony\Component\Mime\Email $email */
+        $email = MessageConverter::toEmail($message->getOriginalMessage());
         $envelope = $message->getEnvelope();
 
         $headers = [];
@@ -110,6 +109,16 @@ class LettermintTransportFactory extends AbstractTransport
             }
 
             $result = $builder->send();
+
+            if (! empty($result['message_id'])) {
+                // RFC 5322 requires Message-ID format: <local-part@domain>
+                // Format the message_id to comply with RFC 5322 if it doesn't contain @
+                $formattedId = str_contains($result['message_id'], '@')
+                    ? $result['message_id']
+                    : $result['message_id'].'@lmta.net';
+
+                $message->setMessageId($formattedId);
+            }
         } catch (Exception $exception) {
             throw new TransportException(
                 sprintf('Sending email via Lettermint API failed: %s', $exception->getMessage()),
