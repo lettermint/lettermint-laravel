@@ -105,7 +105,7 @@ it('can send email', function () {
     $this->emailBuilder
         ->shouldReceive('send')
         ->once()
-        ->andReturn(['id' => '123', 'status' => 'pending']);
+        ->andReturn(['message_id' => '123', 'status' => 'pending']);
 
     $this->transport->send($email);
 });
@@ -172,7 +172,7 @@ it('can send to multiple recipients', function () {
     $this->emailBuilder
         ->shouldReceive('send')
         ->once()
-        ->andReturn(['id' => '123', 'status' => 'pending']);
+        ->andReturn(['message_id' => '123', 'status' => 'pending']);
 
     $this->transport->send($email);
 });
@@ -239,7 +239,7 @@ it('can send email with headers', function () {
     $this->emailBuilder
         ->shouldReceive('send')
         ->once()
-        ->andReturn(['id' => '123', 'status' => 'pending']);
+        ->andReturn(['message_id' => '123', 'status' => 'pending']);
 
     $this->transport->send($email);
 });
@@ -312,7 +312,7 @@ it('can send with attachments', function () {
     $this->emailBuilder
         ->shouldReceive('send')
         ->once()
-        ->andReturn(['id' => '123', 'status' => 'pending']);
+        ->andReturn(['message_id' => '123', 'status' => 'pending']);
 
     $this->transport->send($email);
 });
@@ -389,7 +389,7 @@ it('can send with inline attachments', function () {
     $this->emailBuilder
         ->shouldReceive('send')
         ->once()
-        ->andReturn(['id' => '123', 'status' => 'pending']);
+        ->andReturn(['message_id' => '123', 'status' => 'pending']);
 
     $this->transport->send($email);
 });
@@ -525,7 +525,7 @@ it('can send email with route_id', function () {
     $this->emailBuilder
         ->shouldReceive('send')
         ->once()
-        ->andReturn(['id' => '123', 'status' => 'pending']);
+        ->andReturn(['message_id' => '123', 'status' => 'pending']);
 
     $transport->send($email);
 });
@@ -595,7 +595,7 @@ it('does not call route when route_id is not set', function () {
     $this->emailBuilder
         ->shouldReceive('send')
         ->once()
-        ->andReturn(['id' => '123', 'status' => 'pending']);
+        ->andReturn(['message_id' => '123', 'status' => 'pending']);
 
     $transport->send($email);
 });
@@ -690,7 +690,7 @@ it('uses custom idempotency key when Idempotency-Key header is set', function ()
     $this->emailBuilder
         ->shouldReceive('send')
         ->once()
-        ->andReturn(['id' => '123', 'status' => 'pending']);
+        ->andReturn(['message_id' => '123', 'status' => 'pending']);
 
     $this->transport->send($email);
 });
@@ -761,7 +761,7 @@ it('does not include Idempotency-Key in headers sent to API', function () {
     $this->emailBuilder
         ->shouldReceive('send')
         ->once()
-        ->andReturn(['id' => '123', 'status' => 'pending']);
+        ->andReturn(['message_id' => '123', 'status' => 'pending']);
 
     $this->transport->send($email);
 });
@@ -828,7 +828,7 @@ it('can disable idempotency via configuration', function () {
     $this->emailBuilder
         ->shouldReceive('send')
         ->once()
-        ->andReturn(['id' => '123', 'status' => 'pending']);
+        ->andReturn(['message_id' => '123', 'status' => 'pending']);
 
     $transport->send($email);
 });
@@ -901,7 +901,7 @@ it('header idempotency key works with automatic idempotency enabled', function (
     $this->emailBuilder
         ->shouldReceive('send')
         ->once()
-        ->andReturn(['id' => '123', 'status' => 'pending']);
+        ->andReturn(['message_id' => '123', 'status' => 'pending']);
 
     $transport->send($email);
 });
@@ -974,7 +974,7 @@ it('respects user-provided idempotency header even when config disables idempote
     $this->emailBuilder
         ->shouldReceive('send')
         ->once()
-        ->andReturn(['id' => '123', 'status' => 'pending']);
+        ->andReturn(['message_id' => '123', 'status' => 'pending']);
 
     $transport->send($email);
 });
@@ -1044,7 +1044,7 @@ it('generates idempotency key with default 24-hour window', function () {
     $this->emailBuilder
         ->shouldReceive('send')
         ->once()
-        ->andReturn(['id' => '123', 'status' => 'pending']);
+        ->andReturn(['message_id' => '123', 'status' => 'pending']);
 
     $transport->send($email);
 });
@@ -1114,7 +1114,7 @@ it('generates idempotency key with custom window', function () {
     $this->emailBuilder
         ->shouldReceive('send')
         ->once()
-        ->andReturn(['id' => '123', 'status' => 'pending']);
+        ->andReturn(['message_id' => '123', 'status' => 'pending']);
 
     $transport->send($email);
 });
@@ -1187,7 +1187,7 @@ it('custom idempotency header overrides window configuration', function () {
     $this->emailBuilder
         ->shouldReceive('send')
         ->once()
-        ->andReturn(['id' => '123', 'status' => 'pending']);
+        ->andReturn(['message_id' => '123', 'status' => 'pending']);
 
     $transport->send($email);
 });
@@ -1256,7 +1256,7 @@ it('can send email with tag using TagHeader', function () {
     $this->emailBuilder
         ->shouldReceive('send')
         ->once()
-        ->andReturn(['id' => '123', 'status' => 'pending']);
+        ->andReturn(['message_id' => '123', 'status' => 'pending']);
 
     $this->transport->send($email);
 });
@@ -1326,7 +1326,7 @@ it('can send email with metadata using MetadataHeader', function () {
     $this->emailBuilder
         ->shouldReceive('send')
         ->once()
-        ->andReturn(['id' => '123', 'status' => 'pending']);
+        ->andReturn(['message_id' => '123', 'status' => 'pending']);
 
     $this->transport->send($email);
 });
@@ -1397,7 +1397,7 @@ it('can send email with tag using X-LM-Tag header for backward compatibility', f
     $this->emailBuilder
         ->shouldReceive('send')
         ->once()
-        ->andReturn(['id' => '123', 'status' => 'pending']);
+        ->andReturn(['message_id' => '123', 'status' => 'pending']);
 
     $this->transport->send($email);
 });
@@ -1468,7 +1468,7 @@ it('prefers TagHeader over X-LM-Tag when both are present', function () {
     $this->emailBuilder
         ->shouldReceive('send')
         ->once()
-        ->andReturn(['id' => '123', 'status' => 'pending']);
+        ->andReturn(['message_id' => '123', 'status' => 'pending']);
 
     $this->transport->send($email);
 });
@@ -1546,7 +1546,7 @@ it('can send email with both tag and metadata', function () {
     $this->emailBuilder
         ->shouldReceive('send')
         ->once()
-        ->andReturn(['id' => '123', 'status' => 'pending']);
+        ->andReturn(['message_id' => '123', 'status' => 'pending']);
 
     $this->transport->send($email);
 });
@@ -1613,7 +1613,73 @@ it('does not call tag or metadata methods when not provided', function () {
     $this->emailBuilder
         ->shouldReceive('send')
         ->once()
-        ->andReturn(['id' => '123', 'status' => 'pending']);
+        ->andReturn(['message_id' => '123', 'status' => 'pending']);
 
     $this->transport->send($email);
+});
+
+it('sets Message-ID header from Lettermint API response', function () {
+    $email = (new Email)
+        ->from('from@example.com')
+        ->to('to@example.com')
+        ->subject('Hello world!')
+        ->text('This is a test mail.');
+
+    $this->emailBuilder
+        ->shouldReceive('headers')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('from')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('to')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('subject')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('text')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('html')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('cc')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('bcc')
+        ->once()
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('replyTo')
+        ->once()
+        ->andReturnSelf();
+
+    // Return a message_id from the API
+    $this->emailBuilder
+        ->shouldReceive('send')
+        ->once()
+        ->andReturn(['message_id' => 'lettermint-message-id-12345', 'status' => 'pending']);
+
+    $sentMessage = $this->transport->send($email);
+
+    // Verify that the Message-ID is set to Lettermint's message_id (formatted for RFC 5322)
+    // Since the ID doesn't contain @, it will be formatted as id@lmta.net
+    // getMessageId() returns the ID without angle brackets
+    expect($sentMessage->getMessageId())->toBe('lettermint-message-id-12345@lmta.net');
 });
