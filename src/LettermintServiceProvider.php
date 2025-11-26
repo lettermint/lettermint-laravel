@@ -14,7 +14,8 @@ class LettermintServiceProvider extends PackageServiceProvider
     {
         $package
             ->name('lettermint')
-            ->hasConfigFile();
+            ->hasConfigFile()
+            ->hasRoute('webhooks');
     }
 
     public function boot(): void
