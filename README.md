@@ -281,6 +281,134 @@ public function envelope(): Envelope
 - The `X-LM-Tag` header is supported for backward compatibility
 - When both `TagHeader` and `X-LM-Tag` are present, the `TagHeader` takes precedence
 
+## Webhooks
+
+The package provides built-in support for handling Lettermint webhooks with automatic signature verification.
+
+### Configuration
+
+Add your webhook signing secret to your `.env` file:
+
+```env
+LETTERMINT_WEBHOOK_SECRET=your-webhook-signing-secret
+```
+
+You can optionally configure the route prefix and timestamp tolerance:
+
+```env
+LETTERMINT_WEBHOOK_PREFIX=lettermint
+LETTERMINT_WEBHOOK_TOLERANCE=300
+```
+
+Or publish the config file and modify the webhooks section:
+
+```php
+// config/lettermint.php
+'webhooks' => [
+    'secret' => env('LETTERMINT_WEBHOOK_SECRET'),
+    'prefix' => env('LETTERMINT_WEBHOOK_PREFIX', 'lettermint'),
+    'tolerance' => env('LETTERMINT_WEBHOOK_TOLERANCE', 300),
+],
+```
+
+### Webhook Endpoint
+
+The package automatically registers a webhook endpoint at:
+
+```
+POST /{prefix}/webhook
+```
+
+By default, this is `POST /lettermint/webhook`. Configure this URL in your Lettermint dashboard.
+
+### Handling Webhook Events
+
+The package dispatches Laravel events for each webhook type. Listen to specific events in your `EventServiceProvider` or using closures:
+
+```php
+use Lettermint\Laravel\Events\MessageDelivered;
+use Lettermint\Laravel\Events\MessageHardBounced;
+use Lettermint\Laravel\Events\MessageSpamComplaint;
+
+// In EventServiceProvider
+protected $listen = [
+    MessageDelivered::class => [
+        HandleEmailDelivered::class,
+    ],
+    MessageHardBounced::class => [
+        HandleEmailBounced::class,
+    ],
+];
+
+// Or using closures
+Event::listen(MessageDelivered::class, function ($event) {
+    Log::info('Email delivered', [
+        'message_id' => $event->payload->messageId,
+        'timestamp' => $event->payload->timestamp,
+    ]);
+});
+
+Event::listen(MessageHardBounced::class, function ($event) {
+    // Handle permanent bounce - consider disabling the recipient
+    $recipient = $event->payload->data['recipient'] ?? null;
+});
+```
+
+### Available Events
+
+| Event Class | Webhook Type | Description |
+|-------------|--------------|-------------|
+| `MessageCreated` | `message.created` | Message accepted for processing |
+| `MessageSent` | `message.sent` | Message sent to recipient server |
+| `MessageDelivered` | `message.delivered` | Message successfully delivered |
+| `MessageHardBounced` | `message.hard_bounced` | Permanent delivery failure |
+| `MessageSoftBounced` | `message.soft_bounced` | Temporary delivery failure |
+| `MessageSpamComplaint` | `message.spam_complaint` | Recipient reported spam |
+| `MessageFailed` | `message.failed` | Processing failure |
+| `MessageSuppressed` | `message.suppressed` | Message suppressed |
+| `MessageUnsubscribed` | `message.unsubscribed` | Recipient unsubscribed |
+| `MessageInbound` | `message.inbound` | Inbound email received |
+| `WebhookTest` | `webhook.test` | Test event from dashboard |
+
+### Listening to All Events
+
+You can listen to all webhook events using the base class:
+
+```php
+use Lettermint\Laravel\Events\LettermintWebhookEvent;
+
+Event::listen(LettermintWebhookEvent::class, function ($event) {
+    Log::info('Webhook received', [
+        'type' => $event->payload->type->value,
+        'id' => $event->payload->id,
+    ]);
+});
+```
+
+### Webhook Payload
+
+Each event contains a `WebhookPayload` object with the following properties:
+
+```php
+$event->payload->id;        // Webhook event ID
+$event->payload->type;      // WebhookEventType enum
+$event->payload->timestamp; // DateTimeImmutable
+$event->payload->messageId; // Message ID (if available)
+$event->payload->tag;       // Tag (if set)
+$event->payload->metadata;  // Metadata array
+$event->payload->data;      // Full event data array
+$event->payload->raw;       // Raw webhook payload
+```
+
+### Helper Methods
+
+The `WebhookEventType` enum provides helper methods:
+
+```php
+$event->payload->type->isBounce();        // true for hard/soft bounces
+$event->payload->type->isDeliveryIssue(); // true for bounces, failed, suppressed
+```
+
 ## Testing
 
 ```bash
