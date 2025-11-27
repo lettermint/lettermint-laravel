@@ -32,29 +32,30 @@ it('handles a valid webhook and dispatches event', function () {
         'timestamp' => '2024-01-15T10:30:00Z',
         'data' => [
             'message_id' => 'msg-456',
+            'recipient' => 'test@example.com',
+            'response' => [
+                'status_code' => 250,
+                'enhanced_status_code' => '2.0.0',
+                'content' => 'OK',
+            ],
+            'metadata' => [],
+            'tag' => null,
         ],
     ]);
 
     $headers = createWebhookSignature($payload, 'test-webhook-secret');
 
-    $response = $this->postJson(
-        route('lettermint.webhook'),
-        [],
-        array_merge($headers, ['Content-Type' => 'application/json']),
-    )->setContent($payload);
-
-    // Manually call the route with raw body
     $response = $this->call(
         'POST',
         route('lettermint.webhook'),
         [],
         [],
         [],
-        array_merge([
+        [
             'HTTP_X_LETTERMINT_SIGNATURE' => $headers['X-Lettermint-Signature'],
             'HTTP_X_LETTERMINT_DELIVERY' => $headers['X-Lettermint-Delivery'],
             'CONTENT_TYPE' => 'application/json',
-        ]),
+        ],
         $payload
     );
 
@@ -62,8 +63,9 @@ it('handles a valid webhook and dispatches event', function () {
     $response->assertJson(['status' => 'ok']);
 
     Event::assertDispatched(MessageDelivered::class, function ($event) {
-        return $event->payload->id === 'webhook-123'
-            && $event->payload->messageId === 'msg-456';
+        return $event->envelope->id === 'webhook-123'
+            && $event->data->messageId === 'msg-456'
+            && $event->data->response->statusCode === 250;
     });
 });
 
@@ -74,7 +76,12 @@ it('returns 401 for invalid signature', function () {
         'id' => 'webhook-123',
         'event' => 'message.delivered',
         'timestamp' => '2024-01-15T10:30:00Z',
-        'data' => [],
+        'data' => [
+            'message_id' => 'msg-456',
+            'recipient' => 'test@example.com',
+            'response' => ['status_code' => 250],
+            'metadata' => [],
+        ],
     ]);
 
     $response = $this->call(
@@ -104,7 +111,12 @@ it('returns 401 for missing signature header', function () {
         'id' => 'webhook-123',
         'event' => 'message.delivered',
         'timestamp' => '2024-01-15T10:30:00Z',
-        'data' => [],
+        'data' => [
+            'message_id' => 'msg-456',
+            'recipient' => 'test@example.com',
+            'response' => ['status_code' => 250],
+            'metadata' => [],
+        ],
     ]);
 
     $response = $this->call(
@@ -125,14 +137,19 @@ it('returns 401 for missing signature header', function () {
     Event::assertNotDispatched(LettermintWebhookEvent::class);
 });
 
-it('dispatches correct event for each webhook type', function (string $eventType, string $eventClass) {
+it('dispatches correct event for message.delivered', function () {
     Event::fake();
 
     $payload = json_encode([
         'id' => 'webhook-123',
-        'event' => $eventType,
+        'event' => 'message.delivered',
         'timestamp' => '2024-01-15T10:30:00Z',
-        'data' => [],
+        'data' => [
+            'message_id' => 'msg-456',
+            'recipient' => 'test@example.com',
+            'response' => ['status_code' => 250],
+            'metadata' => [],
+        ],
     ]);
 
     $headers = createWebhookSignature($payload, 'test-webhook-secret');
@@ -152,16 +169,79 @@ it('dispatches correct event for each webhook type', function (string $eventType
     );
 
     $response->assertStatus(200);
+    Event::assertDispatched(MessageDelivered::class);
+});
 
-    Event::assertDispatched($eventClass);
-})->with([
-    ['message.delivered', MessageDelivered::class],
-    ['message.hard_bounced', MessageHardBounced::class],
-    ['webhook.test', WebhookTestEvent::class],
-]);
+it('dispatches correct event for message.hard_bounced', function () {
+    Event::fake();
+
+    $payload = json_encode([
+        'id' => 'webhook-123',
+        'event' => 'message.hard_bounced',
+        'timestamp' => '2024-01-15T10:30:00Z',
+        'data' => [
+            'message_id' => 'msg-456',
+            'recipient' => 'test@example.com',
+            'response' => ['status_code' => 550],
+            'metadata' => [],
+        ],
+    ]);
+
+    $headers = createWebhookSignature($payload, 'test-webhook-secret');
+
+    $response = $this->call(
+        'POST',
+        route('lettermint.webhook'),
+        [],
+        [],
+        [],
+        [
+            'HTTP_X_LETTERMINT_SIGNATURE' => $headers['X-Lettermint-Signature'],
+            'HTTP_X_LETTERMINT_DELIVERY' => $headers['X-Lettermint-Delivery'],
+            'CONTENT_TYPE' => 'application/json',
+        ],
+        $payload
+    );
+
+    $response->assertStatus(200);
+    Event::assertDispatched(MessageHardBounced::class);
+});
+
+it('dispatches correct event for webhook.test', function () {
+    Event::fake();
+
+    $payload = json_encode([
+        'id' => 'webhook-123',
+        'event' => 'webhook.test',
+        'timestamp' => '2024-01-15T10:30:00Z',
+        'data' => [
+            'message' => 'Test webhook',
+            'webhook_id' => 'webhook-456',
+            'timestamp' => 1705315800,
+        ],
+    ]);
+
+    $headers = createWebhookSignature($payload, 'test-webhook-secret');
+
+    $response = $this->call(
+        'POST',
+        route('lettermint.webhook'),
+        [],
+        [],
+        [],
+        [
+            'HTTP_X_LETTERMINT_SIGNATURE' => $headers['X-Lettermint-Signature'],
+            'HTTP_X_LETTERMINT_DELIVERY' => $headers['X-Lettermint-Delivery'],
+            'CONTENT_TYPE' => 'application/json',
+        ],
+        $payload
+    );
+
+    $response->assertStatus(200);
+    Event::assertDispatched(WebhookTestEvent::class);
+});
 
 it('registers webhook route with default prefix', function () {
-    // The default prefix is 'lettermint', resulting in /lettermint/webhook
     $url = route('lettermint.webhook');
 
     expect($url)->toContain('/lettermint/webhook');

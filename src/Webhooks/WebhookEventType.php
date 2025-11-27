@@ -14,6 +14,18 @@ use Lettermint\Laravel\Events\MessageSpamComplaint;
 use Lettermint\Laravel\Events\MessageSuppressed;
 use Lettermint\Laravel\Events\MessageUnsubscribed;
 use Lettermint\Laravel\Events\WebhookTest;
+use Lettermint\Laravel\Webhooks\Data\MessageCreatedData;
+use Lettermint\Laravel\Webhooks\Data\MessageDeliveredData;
+use Lettermint\Laravel\Webhooks\Data\MessageFailedData;
+use Lettermint\Laravel\Webhooks\Data\MessageHardBouncedData;
+use Lettermint\Laravel\Webhooks\Data\MessageInboundData;
+use Lettermint\Laravel\Webhooks\Data\MessageSentData;
+use Lettermint\Laravel\Webhooks\Data\MessageSoftBouncedData;
+use Lettermint\Laravel\Webhooks\Data\MessageSpamComplaintData;
+use Lettermint\Laravel\Webhooks\Data\MessageSuppressedData;
+use Lettermint\Laravel\Webhooks\Data\MessageUnsubscribedData;
+use Lettermint\Laravel\Webhooks\Data\WebhookEnvelope;
+use Lettermint\Laravel\Webhooks\Data\WebhookTestData;
 
 enum WebhookEventType: string
 {
@@ -44,20 +56,28 @@ enum WebhookEventType: string
         ], true);
     }
 
-    public function toEvent(WebhookPayload $payload): LettermintWebhookEvent
+    /**
+     * Create the appropriate event instance from raw webhook payload.
+     *
+     * @param  array<string, mixed>  $rawPayload
+     */
+    public function toEvent(array $rawPayload): LettermintWebhookEvent
     {
+        $envelope = WebhookEnvelope::fromArray($rawPayload);
+        $data = $rawPayload['data'] ?? [];
+
         return match ($this) {
-            self::MessageCreated => new MessageCreated($payload),
-            self::MessageSent => new MessageSent($payload),
-            self::MessageDelivered => new MessageDelivered($payload),
-            self::MessageHardBounced => new MessageHardBounced($payload),
-            self::MessageSoftBounced => new MessageSoftBounced($payload),
-            self::MessageSpamComplaint => new MessageSpamComplaint($payload),
-            self::MessageFailed => new MessageFailed($payload),
-            self::MessageSuppressed => new MessageSuppressed($payload),
-            self::MessageUnsubscribed => new MessageUnsubscribed($payload),
-            self::MessageInbound => new MessageInbound($payload),
-            self::WebhookTest => new WebhookTest($payload),
+            self::MessageCreated => new MessageCreated($envelope, MessageCreatedData::fromArray($data)),
+            self::MessageSent => new MessageSent($envelope, MessageSentData::fromArray($data)),
+            self::MessageDelivered => new MessageDelivered($envelope, MessageDeliveredData::fromArray($data)),
+            self::MessageHardBounced => new MessageHardBounced($envelope, MessageHardBouncedData::fromArray($data)),
+            self::MessageSoftBounced => new MessageSoftBounced($envelope, MessageSoftBouncedData::fromArray($data)),
+            self::MessageSpamComplaint => new MessageSpamComplaint($envelope, MessageSpamComplaintData::fromArray($data)),
+            self::MessageFailed => new MessageFailed($envelope, MessageFailedData::fromArray($data)),
+            self::MessageSuppressed => new MessageSuppressed($envelope, MessageSuppressedData::fromArray($data)),
+            self::MessageUnsubscribed => new MessageUnsubscribed($envelope, MessageUnsubscribedData::fromArray($data)),
+            self::MessageInbound => new MessageInbound($envelope, MessageInboundData::fromArray($data)),
+            self::WebhookTest => new WebhookTest($envelope, WebhookTestData::fromArray($data)),
         };
     }
 }
