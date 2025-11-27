@@ -10,7 +10,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
       - name: Discord Release Webhook
-        uses: lettermint/action-discord-releases@v1.0.0
+        uses: lettermint/action-discord-releases@v1.0.1
         with:
           webhook_url: ${{ secrets.DISCORD_RELEASE_WEBHOOK_URL }}
           color: "f55247"
+          content: 'A new release for the Lettermint Laravel driver is now available! ||@Laravel||'
