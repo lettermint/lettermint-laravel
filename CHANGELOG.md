@@ -2,6 +2,15 @@
 
 All notable changes to `lettermint-laravel` will be documented in this file.
 
+## 1.5.0 - 2025-11-27
+
+### What's Changed
+
+* ci: update Discord release workflow to use new action by @bjarn in https://github.com/lettermint/lettermint-laravel/pull/13
+* Add built-in webhook support  by @bjarn in https://github.com/lettermint/lettermint-laravel/pull/14
+
+**Full Changelog**: https://github.com/lettermint/lettermint-laravel/compare/1.4.0...1.5.0
+
 ## 1.4.0 - 2025-11-16
 
 ### What's Changed
