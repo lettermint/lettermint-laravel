@@ -341,34 +341,36 @@ protected $listen = [
 ];
 
 // Or using closures
-Event::listen(MessageDelivered::class, function ($event) {
+Event::listen(MessageDelivered::class, function (MessageDelivered $event) {
     Log::info('Email delivered', [
-        'message_id' => $event->payload->messageId,
-        'timestamp' => $event->payload->timestamp,
+        'message_id' => $event->data->messageId,
+        'recipient' => $event->data->recipient,
+        'status_code' => $event->data->response->statusCode,
     ]);
 });
 
-Event::listen(MessageHardBounced::class, function ($event) {
+Event::listen(MessageHardBounced::class, function (MessageHardBounced $event) {
     // Handle permanent bounce - consider disabling the recipient
-    $recipient = $event->payload->data['recipient'] ?? null;
+    $recipient = $event->data->recipient;
+    $reason = $event->data->response->content;
 });
 ```
 
 ### Available Events
 
-| Event Class | Webhook Type | Description |
-|-------------|--------------|-------------|
-| `MessageCreated` | `message.created` | Message accepted for processing |
-| `MessageSent` | `message.sent` | Message sent to recipient server |
-| `MessageDelivered` | `message.delivered` | Message successfully delivered |
-| `MessageHardBounced` | `message.hard_bounced` | Permanent delivery failure |
-| `MessageSoftBounced` | `message.soft_bounced` | Temporary delivery failure |
-| `MessageSpamComplaint` | `message.spam_complaint` | Recipient reported spam |
-| `MessageFailed` | `message.failed` | Processing failure |
-| `MessageSuppressed` | `message.suppressed` | Message suppressed |
-| `MessageUnsubscribed` | `message.unsubscribed` | Recipient unsubscribed |
-| `MessageInbound` | `message.inbound` | Inbound email received |
-| `WebhookTest` | `webhook.test` | Test event from dashboard |
+| Event Class            | Webhook Type             | Description                      |
+|------------------------|--------------------------|----------------------------------|
+| `MessageCreated`       | `message.created`        | Message accepted for processing  |
+| `MessageSent`          | `message.sent`           | Message sent to recipient server |
+| `MessageDelivered`     | `message.delivered`      | Message successfully delivered   |
+| `MessageHardBounced`   | `message.hard_bounced`   | Permanent delivery failure       |
+| `MessageSoftBounced`   | `message.soft_bounced`   | Temporary delivery failure       |
+| `MessageSpamComplaint` | `message.spam_complaint` | Recipient reported spam          |
+| `MessageFailed`        | `message.failed`         | Processing failure               |
+| `MessageSuppressed`    | `message.suppressed`     | Message suppressed               |
+| `MessageUnsubscribed`  | `message.unsubscribed`   | Recipient unsubscribed           |
+| `MessageInbound`       | `message.inbound`        | Inbound email received           |
+| `WebhookTest`          | `webhook.test`           | Test event from dashboard        |
 
 ### Listening to All Events
 
@@ -377,36 +379,56 @@ You can listen to all webhook events using the base class:
 ```php
 use Lettermint\Laravel\Events\LettermintWebhookEvent;
 
-Event::listen(LettermintWebhookEvent::class, function ($event) {
+Event::listen(LettermintWebhookEvent::class, function (LettermintWebhookEvent $event) {
     Log::info('Webhook received', [
-        'type' => $event->payload->type->value,
-        'id' => $event->payload->id,
+        'type' => $event->getEnvelope()->event->value,
+        'id' => $event->getEnvelope()->id,
     ]);
 });
 ```
 
-### Webhook Payload
+### Event Structure
 
-Each event contains a `WebhookPayload` object with the following properties:
+Each event has two main properties:
+
+- `$event->envelope` - Common webhook envelope (id, event type, timestamp)
+- `$event->data` - Event-specific typed payload
 
 ```php
-$event->payload->id;        // Webhook event ID
-$event->payload->type;      // WebhookEventType enum
-$event->payload->timestamp; // DateTimeImmutable
-$event->payload->messageId; // Message ID (if available)
-$event->payload->tag;       // Tag (if set)
-$event->payload->metadata;  // Metadata array
-$event->payload->data;      // Full event data array
-$event->payload->raw;       // Raw webhook payload
+// Envelope (common to all events)
+$event->envelope->id;        // Webhook event ID (string)
+$event->envelope->event;     // WebhookEventType enum
+$event->envelope->timestamp; // DateTimeImmutable
+
+// Data (typed per event)
+// For MessageDelivered:
+$event->data->messageId;              // string
+$event->data->recipient;              // string
+$event->data->response->statusCode;   // int
+$event->data->response->content;      // string|null
+$event->data->metadata;               // array
+$event->data->tag;                    // string|null
 ```
+
+### Typed Event Data
+
+Each event type has its own typed data class:
+
+| Event                | Data Properties                                                                                        |
+|----------------------|--------------------------------------------------------------------------------------------------------|
+| `MessageDelivered`   | `messageId`, `recipient`, `response`, `metadata`, `tag`                                                |
+| `MessageHardBounced` | `messageId`, `recipient`, `response`, `metadata`, `tag`                                                |
+| `MessageCreated`     | `messageId`, `from`, `to`, `cc`, `bcc`, `subject`, `metadata`, `tag`                                   |
+| `MessageInbound`     | `route`, `messageId`, `from`, `to`, `subject`, `body`, `headers`, `attachments`, `isSpam`, `spamScore` |
+| `WebhookTest`        | `message`, `webhookId`, `timestamp`                                                                    |
 
 ### Helper Methods
 
 The `WebhookEventType` enum provides helper methods:
 
 ```php
-$event->payload->type->isBounce();        // true for hard/soft bounces
-$event->payload->type->isDeliveryIssue(); // true for bounces, failed, suppressed
+$event->envelope->event->isBounce();        // true for hard/soft bounces
+$event->envelope->event->isDeliveryIssue(); // true for bounces, failed, suppressed
 ```
 
 ## Testing

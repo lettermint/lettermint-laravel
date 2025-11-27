@@ -9,11 +9,12 @@ class WebhookController
 {
     public function __invoke(Request $request): JsonResponse
     {
-        $payload = WebhookPayload::fromArray(
-            $request->attributes->get('lettermint_webhook_payload')
-        );
+        /** @var array<string, mixed> $payload */
+        $payload = $request->attributes->get('lettermint_webhook_payload');
 
-        event($payload->type->toEvent($payload));
+        $eventType = WebhookEventType::from($payload['event']);
+
+        event($eventType->toEvent($payload));
 
         return response()->json(['status' => 'ok']);
     }
