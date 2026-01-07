@@ -11,11 +11,11 @@ final readonly class SpamSymbol
         public string $name,
         public float $score,
         public array $options,
-        public string $description,
+        public ?string $description,
     ) {}
 
     /**
-     * @param  array{name: string, score: float|int, options: array<mixed>, description: string}  $data
+     * @param  array{name: string, score: float|int, options: array<mixed>, description: ?string}  $data
      */
     public static function fromArray(array $data): self
     {
