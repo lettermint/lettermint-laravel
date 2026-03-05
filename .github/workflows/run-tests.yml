@@ -4,10 +4,10 @@ on:
   push:
     paths:
       - '**.php'
-      - '.github/workflows/run-tests.yml'
-      - 'phpunit.xml.dist'
-      - 'composer.json'
-      - 'composer.lock'
+      - .github/workflows/run-tests.yml
+      - phpunit.xml.dist
+      - composer.json
+      - composer.lock
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -16,13 +16,15 @@ concurrency:
 jobs:
   test:
     runs-on: ${{ matrix.os }}
+
     timeout-minutes: 5
+
     strategy:
       fail-fast: true
       matrix:
         os: [ubuntu-latest]
         php: [8.4, 8.3]
-        laravel: [12.*, 11.*, 10.*]
+        laravel: ['10.*', '11.*', '12.*', '13.*']
         stability: [prefer-lowest, prefer-stable]
         include:
           - laravel: 12.*
@@ -31,6 +33,8 @@ jobs:
             testbench: 9.*
           - laravel: 10.*
             testbench: 8.*
+          - laravel: 13.*
+            testbench: 11.*
 
     name: P${{ matrix.php }} - L${{ matrix.laravel }} - ${{ matrix.stability }} - ${{ matrix.os }}
 
@@ -60,7 +64,7 @@ jobs:
           composer require "pestphp/pest:^2.34" "pestphp/pest-plugin-laravel:^2.6" "pestphp/pest-plugin-arch:^2.7" --dev --no-interaction --no-update
 
       - name: Require Pest 3.x and plugins for Laravel 11+
-        if: "!startsWith(matrix.laravel, '10.')"
+        if: !startsWith(matrix.laravel, '10.')
         run: |
           composer require "pestphp/pest:^3.0" "pestphp/pest-plugin-laravel:^3.0" "pestphp/pest-plugin-arch:^3.0" --dev --no-interaction --no-update
 
