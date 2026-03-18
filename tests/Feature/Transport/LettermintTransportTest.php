@@ -3,16 +3,18 @@
 use Illuminate\Mail\MailManager;
 use Lettermint\Endpoints\EmailEndpoint;
 use Lettermint\Laravel\Transport\LettermintTransportFactory;
+use Lettermint\Lettermint;
 use Symfony\Component\Mailer\Exception\TransportException;
 use Symfony\Component\Mailer\Header\MetadataHeader;
 use Symfony\Component\Mailer\Header\TagHeader;
 use Symfony\Component\Mime\Address;
 use Symfony\Component\Mime\Email;
+use Symfony\Component\Mime\Part\DataPart;
 
 beforeEach(function () {
     config()->set('services.lettermint.token', 'test-token');
 
-    $this->lettermint = Mockery::mock(\Lettermint\Lettermint::class);
+    $this->lettermint = Mockery::mock(Lettermint::class);
     $this->emailBuilder = Mockery::mock(EmailEndpoint::class);
     $this->lettermint->email = $this->emailBuilder;
     $this->transport = new LettermintTransportFactory($this->lettermint);
@@ -326,7 +328,7 @@ it('can send with inline attachments', function () {
 
     $content = base64_encode('image-data');
 
-    $image = new \Symfony\Component\Mime\Part\DataPart('image-data', 'logo.png', 'image/png');
+    $image = new DataPart('image-data', 'logo.png', 'image/png');
     $image->asInline();
     $image->setContentId('logo@example.com');
     $email->addPart($image);
