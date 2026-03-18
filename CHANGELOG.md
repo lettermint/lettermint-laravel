@@ -2,6 +2,14 @@
 
 All notable changes to `lettermint-laravel` will be documented in this file.
 
+## 1.6.0 - 2026-03-18
+
+### What's Changed
+
+* feat: add Laravel 13 support and update Pest dependencies by @bjarn in https://github.com/lettermint/lettermint-laravel/pull/20
+
+**Full Changelog**: https://github.com/lettermint/lettermint-laravel/compare/1.5.1...1.6.0
+
 ## 1.5.1 - 2026-01-07
 
 ### What's Changed
