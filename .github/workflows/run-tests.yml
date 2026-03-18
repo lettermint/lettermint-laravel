@@ -22,9 +22,11 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         php: [8.4, 8.3]
-        laravel: [12.*, 11.*, 10.*]
+        laravel: [13.*, 12.*, 11.*, 10.*]
         stability: [prefer-lowest, prefer-stable]
         include:
+          - laravel: 13.*
+            testbench: 11.*
           - laravel: 12.*
             testbench: 10.*
           - laravel: 11.*
@@ -59,10 +61,15 @@ jobs:
         run: |
           composer require "pestphp/pest:^2.34" "pestphp/pest-plugin-laravel:^2.6" "pestphp/pest-plugin-arch:^2.7" --dev --no-interaction --no-update
 
-      - name: Require Pest 3.x and plugins for Laravel 11+
-        if: "!startsWith(matrix.laravel, '10.')"
+      - name: Require Pest 3.x and plugins for Laravel 11-12
+        if: startsWith(matrix.laravel, '11.') || startsWith(matrix.laravel, '12.')
         run: |
           composer require "pestphp/pest:^3.0" "pestphp/pest-plugin-laravel:^3.0" "pestphp/pest-plugin-arch:^3.0" --dev --no-interaction --no-update
+
+      - name: Require Pest 4.x and plugins for Laravel 13
+        if: startsWith(matrix.laravel, '13.')
+        run: |
+          composer require "pestphp/pest:^4.0" "pestphp/pest-plugin-laravel:^4.0" "pestphp/pest-plugin-arch:^4.0" --dev --no-interaction --no-update
 
       - name: Install all dependencies
         run: |
