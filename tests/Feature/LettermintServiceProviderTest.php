@@ -1,8 +1,10 @@
 <?php
 
+use Illuminate\Mail\MailManager;
 use Illuminate\Support\Facades\Mail;
 use Lettermint\Laravel\Exceptions\ApiTokenNotFoundException;
 use Lettermint\Laravel\Transport\LettermintTransportFactory;
+use Lettermint\Lettermint;
 
 beforeEach(function () {
     config()->set('lettermint.token', null);
@@ -31,36 +33,36 @@ it('provides the lettermint singleton', function () {
     config()->set('lettermint.token', 'test-token');
 
     expect(app()->bound('lettermint'))->toBeTrue()
-        ->and(app()->bound(\Lettermint\Lettermint::class))->toBeTrue();
+        ->and(app()->bound(Lettermint::class))->toBeTrue();
 });
 
 it('throws exception when no API token is configured', function () {
-    app()->get(\Lettermint\Lettermint::class);
+    app()->get(Lettermint::class);
 })->throws(ApiTokenNotFoundException::class);
 
 it('uses token from lettermint config', function () {
     config()->set('lettermint.token', 'test-token-from-lettermint');
 
-    $lettermint = app()->get(\Lettermint\Lettermint::class);
+    $lettermint = app()->get(Lettermint::class);
 
-    expect($lettermint)->toBeInstanceOf(\Lettermint\Lettermint::class);
+    expect($lettermint)->toBeInstanceOf(Lettermint::class);
 });
 
 it('uses token from services config', function () {
     config()->set('services.lettermint.token', 'test-token-from-services');
 
-    $lettermint = app()->get(\Lettermint\Lettermint::class);
+    $lettermint = app()->get(Lettermint::class);
 
-    expect($lettermint)->toBeInstanceOf(\Lettermint\Lettermint::class);
+    expect($lettermint)->toBeInstanceOf(Lettermint::class);
 });
 
 it('prefers lettermint config token over services config token', function () {
     config()->set('lettermint.token', 'test-token-from-lettermint');
     config()->set('services.lettermint.token', 'test-token-from-services');
 
-    $lettermint = app()->get(\Lettermint\Lettermint::class);
+    $lettermint = app()->get(Lettermint::class);
 
-    expect($lettermint)->toBeInstanceOf(\Lettermint\Lettermint::class);
+    expect($lettermint)->toBeInstanceOf(Lettermint::class);
 });
 
 it('has config file', function () {
@@ -76,7 +78,7 @@ it('passes route_id configuration to transport when using full mail config', fun
         ],
     ]);
 
-    $manager = app(\Illuminate\Mail\MailManager::class);
+    $manager = app(MailManager::class);
 
     // When Laravel's mail manager creates a mailer, it should pass the full config
     $mailer = $manager->mailer('lettermint_broadcast');

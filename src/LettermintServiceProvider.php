@@ -5,6 +5,7 @@ namespace Lettermint\Laravel;
 use Illuminate\Support\Facades\Mail;
 use Lettermint\Laravel\Exceptions\ApiTokenNotFoundException;
 use Lettermint\Laravel\Transport\LettermintTransportFactory;
+use Lettermint\Lettermint;
 use Spatie\LaravelPackageTools\Package;
 use Spatie\LaravelPackageTools\PackageServiceProvider;
 
@@ -37,7 +38,7 @@ class LettermintServiceProvider extends PackageServiceProvider
 
     protected function registerLettermintClient(): void
     {
-        $this->app->singleton(\Lettermint\Lettermint::class, static function (): \Lettermint\Lettermint {
+        $this->app->singleton(Lettermint::class, static function (): Lettermint {
             // A user can configure the api token in the config file or in the services config file.
             $apiToken = config('lettermint.token') ?? config('services.lettermint.token');
 
@@ -45,16 +46,16 @@ class LettermintServiceProvider extends PackageServiceProvider
                 throw ApiTokenNotFoundException::create();
             }
 
-            return new \Lettermint\Lettermint($apiToken);
+            return new Lettermint($apiToken);
         });
-        $this->app->alias(\Lettermint\Lettermint::class, 'lettermint');
+        $this->app->alias(Lettermint::class, 'lettermint');
     }
 
     public function provides(): array
     {
         return [
             ...parent::provides(),
-            \Lettermint\Lettermint::class,
+            Lettermint::class,
         ];
     }
 }
