@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\Facade;
 use Lettermint\Endpoints\EmailEndpoint;
 
 /**
- * @see \Lettermint\Endpoints\EmailEndpoint
+ * @see EmailEndpoint
  */
 class Lettermint extends Facade
 {
