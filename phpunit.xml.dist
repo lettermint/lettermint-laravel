@@ -31,6 +31,6 @@
     <php>
         <env name="APP_ENV" value="testing"/>
         <env name="MAIL_MAILER" value="lettermint"/>
-        <env name="LETTERMINT_TOKEN" value="test-key"/>
+        <env name="LETTERMINT_PROJECT_TOKEN" value="test-key"/>
     </php>
 </phpunit>

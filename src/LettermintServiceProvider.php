@@ -3,9 +3,10 @@
 namespace Lettermint\Laravel;
 
 use Illuminate\Support\Facades\Mail;
+use Lettermint\Endpoints\EmailEndpoint;
 use Lettermint\Laravel\Exceptions\ApiTokenNotFoundException;
 use Lettermint\Laravel\Transport\LettermintTransportFactory;
-use Lettermint\Lettermint;
+use Lettermint\Lettermint as LettermintSdk;
 use Spatie\LaravelPackageTools\Package;
 use Spatie\LaravelPackageTools\PackageServiceProvider;
 
@@ -33,29 +34,29 @@ class LettermintServiceProvider extends PackageServiceProvider
     {
         parent::register();
 
-        $this->registerLettermintClient();
+        $this->registerLettermintEmailEndpoint();
     }
 
-    protected function registerLettermintClient(): void
+    protected function registerLettermintEmailEndpoint(): void
     {
-        $this->app->singleton(Lettermint::class, static function (): Lettermint {
-            // A user can configure the api token in the config file or in the services config file.
-            $apiToken = config('lettermint.token') ?? config('services.lettermint.token');
+        $this->app->bind(EmailEndpoint::class, static function (): EmailEndpoint {
+            // A user can configure the project token in the config file or in the services config file.
+            $projectToken = config('lettermint.token') ?? config('services.lettermint.token');
 
-            if (! is_string($apiToken)) {
+            if (! is_string($projectToken)) {
                 throw ApiTokenNotFoundException::create();
             }
 
-            return new Lettermint($apiToken);
+            return (new LettermintSdk($projectToken))->email;
         });
-        $this->app->alias(Lettermint::class, 'lettermint');
+        $this->app->alias(EmailEndpoint::class, 'lettermint');
     }
 
     public function provides(): array
     {
         return [
             ...parent::provides(),
-            Lettermint::class,
+            EmailEndpoint::class,
         ];
     }
 }

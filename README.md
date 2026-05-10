@@ -30,17 +30,20 @@ You can publish the config file with:
 php artisan vendor:publish --tag="lettermint-config"
 ```
 
-This creates a `config/lettermint.php` file where you can add your API token.
+This creates a `config/lettermint.php` file where you can add your project token.
 
 ## Configuration
 
-### Setting your API token
+### Setting your project token
 
-Add your Lettermint API token in your `.env` file:
+Add your Lettermint project token in your `.env` file:
 
 ```env
-LETTERMINT_TOKEN=your-lettermint-token
+LETTERMINT_PROJECT_TOKEN=your-lettermint-project-token
 ```
+
+The legacy `LETTERMINT_TOKEN` environment variable is still supported, but
+`LETTERMINT_PROJECT_TOKEN` is preferred for new applications.
 
 Or update the `config/lettermint.php` file as needed.
 
@@ -58,7 +61,7 @@ In your `config/mail.php`, set the default option to lettermint:
 In your `config/services.php`, add the Lettermint service:
 ```php
     'lettermint' => [
-        'token' => env('LETTERMINT_TOKEN'),
+        'token' => env('LETTERMINT_PROJECT_TOKEN', env('LETTERMINT_TOKEN')),
     ],
 ```
 
