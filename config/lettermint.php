@@ -16,6 +16,18 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Lettermint API Token
+    |--------------------------------------------------------------------------
+    |
+    | The Lettermint Team API uses a bearer API token. Use this token when
+    | interacting with projects, domains, routes, messages, and webhooks.
+    |
+    */
+
+    'api_token' => env('LETTERMINT_API_TOKEN'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Webhooks Configuration
     |--------------------------------------------------------------------------
     |

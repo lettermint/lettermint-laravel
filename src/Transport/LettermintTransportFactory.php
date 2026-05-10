@@ -237,8 +237,16 @@ class LettermintTransportFactory extends AbstractTransport
             return is_string($messageId) ? $messageId : null;
         }
 
-        if (is_object($result) && isset($result->message_id) && is_string($result->message_id)) {
-            return $result->message_id;
+        if (is_object($result) && method_exists($result, 'getAttribute')) {
+            $messageId = $result->getAttribute('message_id');
+
+            return is_string($messageId) ? $messageId : null;
+        }
+
+        if (is_object($result)) {
+            $messageId = $result->message_id ?? null;
+
+            return is_string($messageId) ? $messageId : null;
         }
 
         return null;

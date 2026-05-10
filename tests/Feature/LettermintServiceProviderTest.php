@@ -2,14 +2,18 @@
 
 use Illuminate\Mail\MailManager;
 use Illuminate\Support\Facades\Mail;
+use Lettermint\Client\ApiClient;
 use Lettermint\Endpoints\EmailEndpoint;
 use Lettermint\Laravel\Exceptions\ApiTokenNotFoundException;
+use Lettermint\Laravel\Exceptions\TeamApiTokenNotFoundException;
 use Lettermint\Laravel\Facades\Lettermint as LettermintFacade;
 use Lettermint\Laravel\Transport\LettermintTransportFactory;
 
 beforeEach(function () {
     config()->set('lettermint.token', null);
+    config()->set('lettermint.api_token', null);
     config()->set('services.lettermint.token', null);
+    config()->set('services.lettermint.api_token', null);
     config()->set('mail.mailers.lettermint', null);
 });
 
@@ -70,6 +74,32 @@ it('uses legacy token from lettermint config', function () {
 
     expect($email)->toBeInstanceOf(EmailEndpoint::class);
 });
+
+it('provides the lettermint api client binding', function () {
+    config()->set('lettermint.api_token', 'team-api-token');
+
+    expect(app()->bound('lettermint.api'))->toBeTrue()
+        ->and(app()->bound(ApiClient::class))->toBeTrue()
+        ->and(app()->get(ApiClient::class))->toBeInstanceOf(ApiClient::class)
+        ->and(app()->get('lettermint.api'))->toBeInstanceOf(ApiClient::class);
+});
+
+it('uses api token from services config', function () {
+    config()->set('services.lettermint.api_token', 'team-api-token-from-services');
+
+    expect(app()->get(ApiClient::class))->toBeInstanceOf(ApiClient::class);
+});
+
+it('prefers lettermint api token over services api token', function () {
+    config()->set('lettermint.api_token', 'team-api-token-from-lettermint');
+    config()->set('services.lettermint.api_token', 'team-api-token-from-services');
+
+    expect(app()->get(ApiClient::class))->toBeInstanceOf(ApiClient::class);
+});
+
+it('throws exception when no api token is configured', function () {
+    app()->get(ApiClient::class);
+})->throws(TeamApiTokenNotFoundException::class);
 
 it('prefers lettermint config token over services config token', function () {
     config()->set('lettermint.token', 'test-token-from-lettermint');
