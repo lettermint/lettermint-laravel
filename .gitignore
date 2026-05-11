@@ -31,3 +31,4 @@ testbench.yaml
 /docs
 /coverage
 CLAUDE.md
+.DS_Store
