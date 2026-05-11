@@ -4,7 +4,6 @@ namespace Lettermint\Laravel\Transport;
 
 use Exception;
 use Lettermint\Endpoints\EmailEndpoint;
-use Lettermint\Lettermint;
 use LogicException;
 use Symfony\Component\Mailer\Envelope;
 use Symfony\Component\Mailer\Exception\TransportException;
@@ -36,7 +35,7 @@ class LettermintTransportFactory extends AbstractTransport
      * Create a new Lettermint transport instance.
      */
     public function __construct(
-        protected Lettermint $lettermint,
+        protected EmailEndpoint $emailEndpoint,
         protected array $config = []
     ) {
         parent::__construct();
@@ -87,7 +86,7 @@ class LettermintTransportFactory extends AbstractTransport
         }
 
         try {
-            $builder = $this->lettermint->email
+            $builder = $this->emailEndpoint
                 ->headers($headers)
                 ->from($envelope->getSender()->toString())
                 ->to(...$this->stringifyAddresses($this->getRecipients($email, $envelope)))
@@ -117,13 +116,14 @@ class LettermintTransportFactory extends AbstractTransport
             }
 
             $result = $builder->send();
+            $messageId = $this->getMessageId($result);
 
-            if (! empty($result['message_id'])) {
+            if ($messageId !== null && $messageId !== '') {
                 // RFC 5322 requires Message-ID format: <local-part@domain>
                 // Format the message_id to comply with RFC 5322 if it doesn't contain @
-                $formattedId = str_contains($result['message_id'], '@')
-                    ? $result['message_id']
-                    : $result['message_id'].'@lmta.net';
+                $formattedId = str_contains($messageId, '@')
+                    ? $messageId
+                    : $messageId.'@lmta.net';
 
                 $message->setMessageId($formattedId);
             }
@@ -227,6 +227,29 @@ class LettermintTransportFactory extends AbstractTransport
         return array_filter($envelope->getRecipients(), function (Address $address) use ($copies) {
             return in_array($address, $copies, true) === false;
         });
+    }
+
+    protected function getMessageId(mixed $result): ?string
+    {
+        if (is_array($result)) {
+            $messageId = $result['message_id'] ?? null;
+
+            return is_string($messageId) ? $messageId : null;
+        }
+
+        if (is_object($result) && method_exists($result, 'getAttribute')) {
+            $messageId = $result->getAttribute('message_id');
+
+            return is_string($messageId) ? $messageId : null;
+        }
+
+        if (is_object($result)) {
+            $messageId = $result->message_id ?? null;
+
+            return is_string($messageId) ? $messageId : null;
+        }
+
+        return null;
     }
 
     public function __toString(): string

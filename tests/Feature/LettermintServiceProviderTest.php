@@ -2,13 +2,18 @@
 
 use Illuminate\Mail\MailManager;
 use Illuminate\Support\Facades\Mail;
+use Lettermint\Client\ApiClient;
+use Lettermint\Endpoints\EmailEndpoint;
 use Lettermint\Laravel\Exceptions\ApiTokenNotFoundException;
+use Lettermint\Laravel\Exceptions\TeamApiTokenNotFoundException;
+use Lettermint\Laravel\Facades\Lettermint as LettermintFacade;
 use Lettermint\Laravel\Transport\LettermintTransportFactory;
-use Lettermint\Lettermint;
 
 beforeEach(function () {
     config()->set('lettermint.token', null);
+    config()->set('lettermint.api_token', null);
     config()->set('services.lettermint.token', null);
+    config()->set('services.lettermint.api_token', null);
     config()->set('mail.mailers.lettermint', null);
 });
 
@@ -29,40 +34,80 @@ it('registers the lettermint mail transport', function () {
         ->toBeInstanceOf(LettermintTransportFactory::class);
 });
 
-it('provides the lettermint singleton', function () {
+it('provides the lettermint email endpoint binding', function () {
     config()->set('lettermint.token', 'test-token');
 
     expect(app()->bound('lettermint'))->toBeTrue()
-        ->and(app()->bound(Lettermint::class))->toBeTrue();
+        ->and(app()->bound(EmailEndpoint::class))->toBeTrue();
 });
 
-it('throws exception when no API token is configured', function () {
-    app()->get(Lettermint::class);
+it('resolves the facade to the email endpoint', function () {
+    config()->set('lettermint.token', 'test-token');
+
+    expect(LettermintFacade::getFacadeRoot())->toBeInstanceOf(EmailEndpoint::class);
+});
+
+it('throws exception when no project token is configured', function () {
+    app()->get(EmailEndpoint::class);
 })->throws(ApiTokenNotFoundException::class);
 
-it('uses token from lettermint config', function () {
+it('uses project token from lettermint config', function () {
     config()->set('lettermint.token', 'test-token-from-lettermint');
 
-    $lettermint = app()->get(Lettermint::class);
+    $email = app()->get(EmailEndpoint::class);
 
-    expect($lettermint)->toBeInstanceOf(Lettermint::class);
+    expect($email)->toBeInstanceOf(EmailEndpoint::class);
 });
 
-it('uses token from services config', function () {
+it('uses project token from services config', function () {
     config()->set('services.lettermint.token', 'test-token-from-services');
 
-    $lettermint = app()->get(Lettermint::class);
+    $email = app()->get(EmailEndpoint::class);
 
-    expect($lettermint)->toBeInstanceOf(Lettermint::class);
+    expect($email)->toBeInstanceOf(EmailEndpoint::class);
 });
+
+it('uses legacy token from lettermint config', function () {
+    config()->set('lettermint.token', 'legacy-test-token');
+
+    $email = app()->get(EmailEndpoint::class);
+
+    expect($email)->toBeInstanceOf(EmailEndpoint::class);
+});
+
+it('provides the lettermint api client binding', function () {
+    config()->set('lettermint.api_token', 'team-api-token');
+
+    expect(app()->bound('lettermint.api'))->toBeTrue()
+        ->and(app()->bound(ApiClient::class))->toBeTrue()
+        ->and(app()->get(ApiClient::class))->toBeInstanceOf(ApiClient::class)
+        ->and(app()->get('lettermint.api'))->toBeInstanceOf(ApiClient::class);
+});
+
+it('uses api token from services config', function () {
+    config()->set('services.lettermint.api_token', 'team-api-token-from-services');
+
+    expect(app()->get(ApiClient::class))->toBeInstanceOf(ApiClient::class);
+});
+
+it('prefers lettermint api token over services api token', function () {
+    config()->set('lettermint.api_token', 'team-api-token-from-lettermint');
+    config()->set('services.lettermint.api_token', 'team-api-token-from-services');
+
+    expect(app()->get(ApiClient::class))->toBeInstanceOf(ApiClient::class);
+});
+
+it('throws exception when no api token is configured', function () {
+    app()->get(ApiClient::class);
+})->throws(TeamApiTokenNotFoundException::class);
 
 it('prefers lettermint config token over services config token', function () {
     config()->set('lettermint.token', 'test-token-from-lettermint');
     config()->set('services.lettermint.token', 'test-token-from-services');
 
-    $lettermint = app()->get(Lettermint::class);
+    $email = app()->get(EmailEndpoint::class);
 
-    expect($lettermint)->toBeInstanceOf(Lettermint::class);
+    expect($email)->toBeInstanceOf(EmailEndpoint::class);
 });
 
 it('has config file', function () {

@@ -4,15 +4,27 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Lettermint Token
+    | Lettermint Project Token
     |--------------------------------------------------------------------------
     |
-    | Every Lettermint project has a unique API token. You can find your API
+    | Every Lettermint project has a unique project token. You can find your
     | token in your Lettermint project settings.
     |
     */
 
-    'token' => env('LETTERMINT_TOKEN'),
+    'token' => env('LETTERMINT_PROJECT_TOKEN', env('LETTERMINT_TOKEN')),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Lettermint API Token
+    |--------------------------------------------------------------------------
+    |
+    | The Lettermint Team API uses a bearer API token. Use this token when
+    | interacting with projects, domains, routes, messages, and webhooks.
+    |
+    */
+
+    'api_token' => env('LETTERMINT_API_TOKEN'),
 
     /*
     |--------------------------------------------------------------------------

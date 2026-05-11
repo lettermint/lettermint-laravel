@@ -3,14 +3,15 @@
 namespace Lettermint\Laravel\Facades;
 
 use Illuminate\Support\Facades\Facade;
+use Lettermint\Endpoints\EmailEndpoint;
 
 /**
- * @see \Lettermint\Laravel\Lettermint
+ * @see EmailEndpoint
  */
 class Lettermint extends Facade
 {
     protected static function getFacadeAccessor(): string
     {
-        return \Lettermint\Laravel\Lettermint::class;
+        return EmailEndpoint::class;
     }
 }
