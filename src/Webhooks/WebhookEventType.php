@@ -8,6 +8,7 @@ use Lettermint\Laravel\Events\MessageDelivered;
 use Lettermint\Laravel\Events\MessageFailed;
 use Lettermint\Laravel\Events\MessageHardBounced;
 use Lettermint\Laravel\Events\MessageInbound;
+use Lettermint\Laravel\Events\MessagePolicyRejected;
 use Lettermint\Laravel\Events\MessageSent;
 use Lettermint\Laravel\Events\MessageSoftBounced;
 use Lettermint\Laravel\Events\MessageSpamComplaint;
@@ -19,6 +20,7 @@ use Lettermint\Laravel\Webhooks\Data\MessageDeliveredData;
 use Lettermint\Laravel\Webhooks\Data\MessageFailedData;
 use Lettermint\Laravel\Webhooks\Data\MessageHardBouncedData;
 use Lettermint\Laravel\Webhooks\Data\MessageInboundData;
+use Lettermint\Laravel\Webhooks\Data\MessagePolicyRejectedData;
 use Lettermint\Laravel\Webhooks\Data\MessageSentData;
 use Lettermint\Laravel\Webhooks\Data\MessageSoftBouncedData;
 use Lettermint\Laravel\Webhooks\Data\MessageSpamComplaintData;
@@ -39,6 +41,7 @@ enum WebhookEventType: string
     case MessageSuppressed = 'message.suppressed';
     case MessageUnsubscribed = 'message.unsubscribed';
     case MessageInbound = 'message.inbound';
+    case MessagePolicyRejected = 'message.policy_rejected';
     case WebhookTest = 'webhook.test';
 
     public function isBounce(): bool
@@ -53,6 +56,7 @@ enum WebhookEventType: string
             self::MessageSoftBounced,
             self::MessageFailed,
             self::MessageSuppressed,
+            self::MessagePolicyRejected,
         ], true);
     }
 
@@ -77,6 +81,7 @@ enum WebhookEventType: string
             self::MessageSuppressed => new MessageSuppressed($envelope, MessageSuppressedData::fromArray($data)),
             self::MessageUnsubscribed => new MessageUnsubscribed($envelope, MessageUnsubscribedData::fromArray($data)),
             self::MessageInbound => new MessageInbound($envelope, MessageInboundData::fromArray($data)),
+            self::MessagePolicyRejected => new MessagePolicyRejected($envelope, MessagePolicyRejectedData::fromArray($data)),
             self::WebhookTest => new WebhookTest($envelope, WebhookTestData::fromArray($data)),
         };
     }
