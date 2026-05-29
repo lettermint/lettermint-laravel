@@ -392,7 +392,10 @@ Event::listen(MessageHardBounced::class, function (MessageHardBounced $event) {
 | `MessageSpamComplaint` | `message.spam_complaint` | Recipient reported spam          |
 | `MessageFailed`        | `message.failed`         | Processing failure               |
 | `MessageSuppressed`    | `message.suppressed`     | Message suppressed               |
+| `MessagePolicyRejected`| `message.policy_rejected`| Rejected by sending policy       |
 | `MessageUnsubscribed`  | `message.unsubscribed`   | Recipient unsubscribed           |
+| `MessageOpened`        | `message.opened`         | Recipient opened the email       |
+| `MessageClicked`       | `message.clicked`        | Recipient clicked a link         |
 | `MessageInbound`       | `message.inbound`        | Inbound email received           |
 | `WebhookTest`          | `webhook.test`           | Test event from dashboard        |
 
@@ -443,6 +446,9 @@ Each event type has its own typed data class:
 | `MessageDelivered`   | `messageId`, `recipient`, `response`, `metadata`, `tag`                                                |
 | `MessageHardBounced` | `messageId`, `recipient`, `response`, `metadata`, `tag`                                                |
 | `MessageCreated`     | `messageId`, `from`, `to`, `cc`, `bcc`, `subject`, `metadata`, `tag`                                   |
+| `MessagePolicyRejected` | `messageId`, `subject`, `reason`, `score`, `spamSymbols`, `metadata`, `tag`                         |
+| `MessageOpened`      | `messageId`, `subject`, `recipient`, `openedAt`, `firstOpen`, `deviceType`, `clientType`, `bot`        |
+| `MessageClicked`     | `messageId`, `subject`, `recipient`, `clickedAt`, `destinationUrl`, `linkIndex`, `firstClick`, `bot`   |
 | `MessageInbound`     | `route`, `messageId`, `from`, `to`, `subject`, `body`, `headers`, `attachments`, `isSpam`, `spamScore` |
 | `WebhookTest`        | `message`, `webhookId`, `timestamp`                                                                    |
 
