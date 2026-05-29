@@ -5,6 +5,7 @@ use Lettermint\Laravel\Events\MessageDelivered;
 use Lettermint\Laravel\Events\MessageFailed;
 use Lettermint\Laravel\Events\MessageHardBounced;
 use Lettermint\Laravel\Events\MessageInbound;
+use Lettermint\Laravel\Events\MessagePolicyRejected;
 use Lettermint\Laravel\Events\MessageSent;
 use Lettermint\Laravel\Events\MessageSoftBounced;
 use Lettermint\Laravel\Events\MessageSpamComplaint;
@@ -24,6 +25,7 @@ it('can create event type from string value', function () {
     expect(WebhookEventType::from('message.suppressed'))->toBe(WebhookEventType::MessageSuppressed);
     expect(WebhookEventType::from('message.unsubscribed'))->toBe(WebhookEventType::MessageUnsubscribed);
     expect(WebhookEventType::from('message.inbound'))->toBe(WebhookEventType::MessageInbound);
+    expect(WebhookEventType::from('message.policy_rejected'))->toBe(WebhookEventType::MessagePolicyRejected);
     expect(WebhookEventType::from('webhook.test'))->toBe(WebhookEventType::WebhookTest);
 });
 
@@ -39,6 +41,7 @@ it('identifies delivery issue event types', function () {
     expect(WebhookEventType::MessageSoftBounced->isDeliveryIssue())->toBeTrue();
     expect(WebhookEventType::MessageFailed->isDeliveryIssue())->toBeTrue();
     expect(WebhookEventType::MessageSuppressed->isDeliveryIssue())->toBeTrue();
+    expect(WebhookEventType::MessagePolicyRejected->isDeliveryIssue())->toBeTrue();
     expect(WebhookEventType::MessageDelivered->isDeliveryIssue())->toBeFalse();
     expect(WebhookEventType::MessageSent->isDeliveryIssue())->toBeFalse();
 });
@@ -189,6 +192,21 @@ it('creates correct event class for each type', function (string $eventType, str
             'spam_score' => 0,
             'spam_symbols' => [],
         ],
+        'message.policy_rejected' => [
+            'message_id' => 'msg-123',
+            'subject' => 'Limited time offer!!!',
+            'reason' => 'Spam score threshold exceeded',
+            'score' => 7.5,
+            'spam_symbols' => [
+                [
+                    'name' => 'BAYES_SPAM',
+                    'score' => 3.5,
+                    'options' => [],
+                    'description' => 'Bayes spam probability is very high',
+                ],
+            ],
+            'metadata' => [],
+        ],
         'webhook.test' => [
             'message' => 'Test',
             'webhook_id' => 'webhook-123',
@@ -217,5 +235,6 @@ it('creates correct event class for each type', function (string $eventType, str
     ['message.suppressed', MessageSuppressed::class],
     ['message.unsubscribed', MessageUnsubscribed::class],
     ['message.inbound', MessageInbound::class],
+    ['message.policy_rejected', MessagePolicyRejected::class],
     ['webhook.test', WebhookTest::class],
 ]);
