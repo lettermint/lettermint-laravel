@@ -1,10 +1,12 @@
 <?php
 
+use Lettermint\Laravel\Events\MessageClicked;
 use Lettermint\Laravel\Events\MessageCreated;
 use Lettermint\Laravel\Events\MessageDelivered;
 use Lettermint\Laravel\Events\MessageFailed;
 use Lettermint\Laravel\Events\MessageHardBounced;
 use Lettermint\Laravel\Events\MessageInbound;
+use Lettermint\Laravel\Events\MessageOpened;
 use Lettermint\Laravel\Events\MessagePolicyRejected;
 use Lettermint\Laravel\Events\MessageSent;
 use Lettermint\Laravel\Events\MessageSoftBounced;
@@ -23,9 +25,11 @@ it('can create event type from string value', function () {
     expect(WebhookEventType::from('message.spam_complaint'))->toBe(WebhookEventType::MessageSpamComplaint);
     expect(WebhookEventType::from('message.failed'))->toBe(WebhookEventType::MessageFailed);
     expect(WebhookEventType::from('message.suppressed'))->toBe(WebhookEventType::MessageSuppressed);
-    expect(WebhookEventType::from('message.unsubscribed'))->toBe(WebhookEventType::MessageUnsubscribed);
-    expect(WebhookEventType::from('message.inbound'))->toBe(WebhookEventType::MessageInbound);
     expect(WebhookEventType::from('message.policy_rejected'))->toBe(WebhookEventType::MessagePolicyRejected);
+    expect(WebhookEventType::from('message.unsubscribed'))->toBe(WebhookEventType::MessageUnsubscribed);
+    expect(WebhookEventType::from('message.opened'))->toBe(WebhookEventType::MessageOpened);
+    expect(WebhookEventType::from('message.clicked'))->toBe(WebhookEventType::MessageClicked);
+    expect(WebhookEventType::from('message.inbound'))->toBe(WebhookEventType::MessageInbound);
     expect(WebhookEventType::from('webhook.test'))->toBe(WebhookEventType::WebhookTest);
 });
 
@@ -170,11 +174,73 @@ it('creates correct event class for each type', function (string $eventType, str
             'reason' => 'Suppressed',
             'metadata' => [],
         ],
+        'message.policy_rejected' => [
+            'message_id' => 'msg-123',
+            'subject' => 'Limited time offer!!!',
+            'reason' => 'Spam score threshold exceeded',
+            'score' => 7.5,
+            'spam_symbols' => [
+                [
+                    'name' => 'BAYES_SPAM',
+                    'score' => 3.5,
+                    'options' => [],
+                    'description' => 'Bayes spam probability is very high',
+                ],
+            ],
+            'metadata' => [],
+        ],
         'message.unsubscribed' => [
             'message_id' => 'msg-123',
             'recipient' => 'test@example.com',
             'unsubscribed_at' => '2024-01-01T00:00:00Z',
             'metadata' => [],
+        ],
+        'message.opened' => [
+            'message_id' => 'msg-123',
+            'subject' => 'Test',
+            'metadata' => [],
+            'tag' => null,
+            'recipient' => 'test@example.com',
+            'opened_at' => '2024-01-01T00:00:00Z',
+            'first_open' => true,
+            'device_type' => 'desktop',
+            'client_type' => 'browser',
+            'client_name' => 'Chrome',
+            'user_agent' => 'Mozilla/5.0',
+            'bot' => [
+                'detected' => false,
+                'probability' => 0,
+                'classification' => 'genuine',
+                'proxy_type' => null,
+                'reason_codes' => [],
+                'machine' => false,
+                'counts_for_metrics' => true,
+            ],
+        ],
+        'message.clicked' => [
+            'message_id' => 'msg-123',
+            'subject' => 'Test',
+            'metadata' => [],
+            'tag' => null,
+            'recipient' => 'test@example.com',
+            'clicked_at' => '2024-01-01T00:00:00Z',
+            'destination_url' => 'https://example.com/product/123',
+            'link_index' => 0,
+            'anchor_text' => 'View Product',
+            'first_click' => true,
+            'device_type' => 'mobile',
+            'client_type' => 'browser',
+            'client_name' => 'Safari',
+            'user_agent' => 'Mozilla/5.0',
+            'bot' => [
+                'detected' => false,
+                'probability' => 0,
+                'classification' => 'genuine',
+                'proxy_type' => null,
+                'reason_codes' => [],
+                'machine' => false,
+                'counts_for_metrics' => true,
+            ],
         ],
         'message.inbound' => [
             'route' => 'route-123',
@@ -191,21 +257,6 @@ it('creates correct event class for each type', function (string $eventType, str
             'is_spam' => false,
             'spam_score' => 0,
             'spam_symbols' => [],
-        ],
-        'message.policy_rejected' => [
-            'message_id' => 'msg-123',
-            'subject' => 'Limited time offer!!!',
-            'reason' => 'Spam score threshold exceeded',
-            'score' => 7.5,
-            'spam_symbols' => [
-                [
-                    'name' => 'BAYES_SPAM',
-                    'score' => 3.5,
-                    'options' => [],
-                    'description' => 'Bayes spam probability is very high',
-                ],
-            ],
-            'metadata' => [],
         ],
         'webhook.test' => [
             'message' => 'Test',
@@ -233,8 +284,10 @@ it('creates correct event class for each type', function (string $eventType, str
     ['message.spam_complaint', MessageSpamComplaint::class],
     ['message.failed', MessageFailed::class],
     ['message.suppressed', MessageSuppressed::class],
-    ['message.unsubscribed', MessageUnsubscribed::class],
-    ['message.inbound', MessageInbound::class],
     ['message.policy_rejected', MessagePolicyRejected::class],
+    ['message.unsubscribed', MessageUnsubscribed::class],
+    ['message.opened', MessageOpened::class],
+    ['message.clicked', MessageClicked::class],
+    ['message.inbound', MessageInbound::class],
     ['webhook.test', WebhookTest::class],
 ]);
