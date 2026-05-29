@@ -306,7 +306,43 @@ it('can send with attachments', function () {
     $this->emailBuilder
         ->shouldReceive('attach')
         ->once()
-        ->with('test.txt', $content, null)
+        ->with('test.txt', $content, null, 'text/plain')
+        ->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('send')
+        ->once()
+        ->andReturn(new SendMailResponse(['message_id' => '123', 'status' => 'pending']));
+
+    $this->transport->send($email);
+});
+
+it('forwards attachment content_type to the API (calendar RSVP)', function () {
+    $email = (new Email)
+        ->from('from@example.com')
+        ->to('to@example.com')
+        ->subject('Interview invitation')
+        ->text('See attached invitation.');
+
+    $ics = "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nMETHOD:REQUEST\r\nEND:VCALENDAR\r\n";
+    $email->attach($ics, 'invite.ics', 'text/calendar; method=REQUEST');
+
+    $expectedContent = base64_encode($ics);
+
+    $this->emailBuilder->shouldReceive('headers')->once()->andReturnSelf();
+    $this->emailBuilder->shouldReceive('from')->once()->andReturnSelf();
+    $this->emailBuilder->shouldReceive('to')->once()->andReturnSelf();
+    $this->emailBuilder->shouldReceive('subject')->once()->andReturnSelf();
+    $this->emailBuilder->shouldReceive('text')->once()->andReturnSelf();
+    $this->emailBuilder->shouldReceive('html')->once()->andReturnSelf();
+    $this->emailBuilder->shouldReceive('cc')->once()->andReturnSelf();
+    $this->emailBuilder->shouldReceive('bcc')->once()->andReturnSelf();
+    $this->emailBuilder->shouldReceive('replyTo')->once()->andReturnSelf();
+
+    $this->emailBuilder
+        ->shouldReceive('attach')
+        ->once()
+        ->with('invite.ics', $expectedContent, null, 'text/calendar; method=REQUEST')
         ->andReturnSelf();
 
     $this->emailBuilder
@@ -383,7 +419,7 @@ it('can send with inline attachments', function () {
     $this->emailBuilder
         ->shouldReceive('attach')
         ->once()
-        ->with('logo.png', $content, 'logo@example.com')
+        ->with('logo.png', $content, 'logo@example.com', 'image/png')
         ->andReturnSelf();
 
     $this->emailBuilder

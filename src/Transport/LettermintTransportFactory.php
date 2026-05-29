@@ -111,7 +111,8 @@ class LettermintTransportFactory extends AbstractTransport
                 $builder->attach(
                     $attachment['filename'],
                     $attachment['content'],
-                    $attachment['content_id'] ?? null
+                    $attachment['content_id'] ?? null,
+                    $attachment['content_type'] ?? null,
                 );
             }
 
