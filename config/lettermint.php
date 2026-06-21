@@ -37,7 +37,7 @@ return [
     |
     */
 
-    'request_timeout' => (int) env('LETTERMINT_REQUEST_TIMEOUT', 15),
+    'timeout' => (int) env('LETTERMINT_TIMEOUT', 15),
 
     /*
     |--------------------------------------------------------------------------

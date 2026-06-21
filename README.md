@@ -55,6 +55,14 @@ Add your Lettermint API token in your `.env` file when you want to use the Team 
 LETTERMINT_API_TOKEN=your-lettermint-api-token
 ```
 
+### Setting the request timeout
+
+The default Lettermint API request timeout is 15 seconds. You can override it in your `.env` file:
+
+```env
+LETTERMINT_TIMEOUT=30
+```
+
 ### Add the transport
 
 In your `config/mail.php`, set the default option to lettermint:

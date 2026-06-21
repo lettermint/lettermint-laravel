@@ -75,6 +75,15 @@ it('uses legacy token from lettermint config', function () {
     expect($email)->toBeInstanceOf(EmailEndpoint::class);
 });
 
+it('passes configured request timeout to the email sdk client', function () {
+    config()->set('lettermint.token', 'test-token');
+    config()->set('lettermint.timeout', 42);
+
+    $email = app()->get(EmailEndpoint::class);
+
+    expect(sdkRequestTimeout($email))->toBe(42);
+});
+
 it('provides the lettermint api client binding', function () {
     config()->set('lettermint.api_token', 'team-api-token');
 
@@ -95,6 +104,15 @@ it('prefers lettermint api token over services api token', function () {
     config()->set('services.lettermint.api_token', 'team-api-token-from-services');
 
     expect(app()->get(ApiClient::class))->toBeInstanceOf(ApiClient::class);
+});
+
+it('passes configured request timeout to the api sdk client', function () {
+    config()->set('lettermint.api_token', 'team-api-token');
+    config()->set('lettermint.timeout', 42);
+
+    $api = app()->get(ApiClient::class);
+
+    expect(sdkRequestTimeout($api))->toBe(42);
 });
 
 it('throws exception when no api token is configured', function () {
@@ -140,3 +158,26 @@ it('passes route_id configuration to transport when using full mail config', fun
     expect($config)->toHaveKey('route_id');
     expect($config['route_id'])->toBe('broadcast');
 });
+
+function sdkRequestTimeout(object $sdkObject): int|float
+{
+    $httpClient = sdkHttpClient($sdkObject);
+
+    $httpClientReflection = new ReflectionClass($httpClient);
+    $guzzleClientProperty = $httpClientReflection->getProperty('client');
+    $guzzleClientProperty->setAccessible(true);
+    $guzzleClient = $guzzleClientProperty->getValue($httpClient);
+
+    return $guzzleClient->getConfig('timeout');
+}
+
+function sdkHttpClient(object $sdkObject): object
+{
+    $sdkReflection = new ReflectionClass($sdkObject);
+    $httpClientProperty = $sdkReflection->hasProperty('httpClient')
+        ? $sdkReflection->getProperty('httpClient')
+        : $sdkReflection->getParentClass()->getProperty('httpClient');
+    $httpClientProperty->setAccessible(true);
+
+    return $httpClientProperty->getValue($sdkObject);
+}
