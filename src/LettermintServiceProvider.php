@@ -50,7 +50,7 @@ class LettermintServiceProvider extends PackageServiceProvider
                 throw ApiTokenNotFoundException::create();
             }
 
-            return LettermintSdk::email($projectToken);
+            return LettermintSdk::email($projectToken, timeout: self::requestTimeout());
         });
         $this->app->alias(EmailEndpoint::class, 'lettermint');
     }
@@ -64,9 +64,14 @@ class LettermintServiceProvider extends PackageServiceProvider
                 throw TeamApiTokenNotFoundException::create();
             }
 
-            return LettermintSdk::api($apiToken);
+            return LettermintSdk::api($apiToken, timeout: self::requestTimeout());
         });
         $this->app->alias(ApiClient::class, 'lettermint.api');
+    }
+
+    private static function requestTimeout(): int
+    {
+        return (int) config('lettermint.timeout', 15);
     }
 
     public function provides(): array

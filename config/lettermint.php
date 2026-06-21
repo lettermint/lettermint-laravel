@@ -28,6 +28,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Request Timeout
+    |--------------------------------------------------------------------------
+    |
+    | The maximum number of seconds to wait for a response from the Lettermint
+    | API before timing out. Increase this if you send large batch requests
+    | that occasionally need longer than the default to be accepted.
+    |
+    */
+
+    'timeout' => (int) env('LETTERMINT_TIMEOUT', 15),
+
+    /*
+    |--------------------------------------------------------------------------
     | Webhooks Configuration
     |--------------------------------------------------------------------------
     |
