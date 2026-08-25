@@ -9,7 +9,7 @@ final readonly class MessageFailedData
      */
     public function __construct(
         public string $messageId,
-        public string $recipient,
+        public ?string $recipient,
         public string $reason,
         public ServerResponse $response,
         public array $metadata,
