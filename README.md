@@ -337,6 +337,7 @@ Or publish the config file and modify the webhooks section:
 ```php
 // config/lettermint.php
 'webhooks' => [
+    'enabled' => env('LETTERMINT_WEBHOOK_ENABLED', true),
     'secret' => env('LETTERMINT_WEBHOOK_SECRET'),
     'prefix' => env('LETTERMINT_WEBHOOK_PREFIX', 'lettermint'),
     'tolerance' => env('LETTERMINT_WEBHOOK_TOLERANCE', 300),
@@ -351,7 +352,40 @@ The package automatically registers a webhook endpoint at:
 POST /{prefix}/webhook
 ```
 
-By default, this is `POST /lettermint/webhook`. Configure this URL in your Lettermint dashboard.
+By default, this is `POST /lettermint/webhook` (named `lettermint.webhook`). Configure this URL in your Lettermint dashboard.
+
+### Custom webhook routes
+
+To register the webhook yourself (for example to constrain it to a specific domain or subdomain), disable automatic registration:
+
+```env
+LETTERMINT_WEBHOOK_ENABLED=false
+```
+
+Or in `config/lettermint.php`:
+
+```php
+'webhooks' => [
+    'enabled' => false,
+    // ...
+],
+```
+
+If you previously published the config file, add the `enabled` key to the `webhooks` array. Then register the existing controller and signature middleware in your own routes file:
+
+```php
+use Illuminate\Support\Facades\Route;
+use Lettermint\Laravel\Webhooks\VerifyWebhookSignature;
+use Lettermint\Laravel\Webhooks\WebhookController;
+
+Route::post(
+    config('lettermint.webhooks.prefix', 'lettermint').'/webhook',
+    WebhookController::class
+)->name('lettermint.webhook')
+    ->middleware(VerifyWebhookSignature::class);
+```
+
+You can wrap that registration in `Route::domain(...)` (or any other route group) if the endpoint should only be available on a specific domain. Keeping the `lettermint.webhook` name and configured prefix means existing Lettermint dashboard URLs and `route('lettermint.webhook')` calls continue to work.
 
 ### Handling Webhook Events
 
