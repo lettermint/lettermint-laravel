@@ -2,6 +2,50 @@
 
 All notable changes to `lettermint-laravel` will be documented in this file.
 
+## 2.2.1 - 2026-08-28
+
+### What's Changed
+
+* chore(deps): bump actions/checkout from 6 to 7 by @dependabot[bot] in https://github.com/lettermint/lettermint-laravel/pull/32
+* feat: allow disabling automatic webhook route registration by @bjarn in https://github.com/lettermint/lettermint-laravel/pull/35
+
+**Full Changelog**: https://github.com/lettermint/lettermint-laravel/compare/2.2.0...2.2.1
+
+## 2.2.0 - 2026-06-21
+
+### What's Changed
+
+* Make API request timeout configurable by @heikokrebs in https://github.com/lettermint/lettermint-laravel/pull/31
+
+**Full Changelog**: https://github.com/lettermint/lettermint-laravel/compare/2.1.0...2.2.0
+
+## 2.1.0 - 2026-05-29
+
+### What's Changed
+
+* Delete .github/workflows/dependabot-auto-merge.yml by @bjarn in https://github.com/lettermint/lettermint-laravel/pull/26
+* feat: add message.policy_rejected webhook event. Fixes #27 by @heikokrebs in https://github.com/lettermint/lettermint-laravel/pull/28
+* feat: add message.opened and message.clicked events to WebhookEventType enum by @bjarn in https://github.com/lettermint/lettermint-laravel/pull/30
+* Pass attachment content_type to the Lettermint API by @heikokrebs in https://github.com/lettermint/lettermint-laravel/pull/29
+
+### New Contributors
+
+* @heikokrebs made their first contribution in https://github.com/lettermint/lettermint-laravel/pull/28
+
+**Full Changelog**: https://github.com/lettermint/lettermint-laravel/compare/2.0.0...2.1.0
+
+## 2.0.0 - 2026-05-11
+
+### What's Changed
+
+* chore(deps): bump ramsey/composer-install from 3 to 4 by @dependabot[bot] in https://github.com/lettermint/lettermint-laravel/pull/19
+* chore(deps): bump dependabot/fetch-metadata from 2.4.0 to 3.0.0 by @dependabot[bot] in https://github.com/lettermint/lettermint-laravel/pull/21
+* chore(deps): bump dependabot/fetch-metadata from 3.0.0 to 3.1.0 by @dependabot[bot] in https://github.com/lettermint/lettermint-laravel/pull/22
+* chore: update LICENSE and gitignore by @bjarn in https://github.com/lettermint/lettermint-laravel/pull/23
+* feat: add support for Team API by @bjarn in https://github.com/lettermint/lettermint-laravel/pull/24
+
+**Full Changelog**: https://github.com/lettermint/lettermint-laravel/compare/1.6.0...2.0.0
+
 ## 1.6.0 - 2026-03-18
 
 ### What's Changed
