@@ -2,6 +2,18 @@
 
 All notable changes to `lettermint-laravel` will be documented in this file.
 
+## 2.2.2 - 2026-09-27
+
+### What's Changed
+
+* fix: accept null failed-message recipients by @bjarn in https://github.com/lettermint/lettermint-laravel/pull/34
+* chore: add all team as code owners by @bjarn in https://github.com/lettermint/lettermint-laravel/pull/37
+* Use the SDK release bot for changelog updates by @bjarn in https://github.com/lettermint/lettermint-laravel/pull/38
+* chore(deps): bump actions/create-github-app-token from 2.2.2 to 3.2.0 by @dependabot[bot] in https://github.com/lettermint/lettermint-laravel/pull/39
+* fix: accept inbound attachments without filenames by @bjarn in https://github.com/lettermint/lettermint-laravel/pull/40
+
+**Full Changelog**: https://github.com/lettermint/lettermint-laravel/compare/2.2.1...2.2.2
+
 ## 2.2.1 - 2026-08-28
 
 ### What's Changed
