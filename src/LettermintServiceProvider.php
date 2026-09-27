@@ -18,8 +18,16 @@ class LettermintServiceProvider extends PackageServiceProvider
     {
         $package
             ->name('lettermint')
-            ->hasConfigFile()
-            ->hasRoute('webhooks');
+            ->hasConfigFile();
+    }
+
+    public function bootingPackage(): void
+    {
+        // hasRoute cannot live in configurePackage: that hook runs before the
+        // package config is merged, so webhooks.enabled would not be readable.
+        if (config('lettermint.webhooks.enabled', true)) {
+            $this->package->hasRoute('webhooks');
+        }
     }
 
     public function boot(): void

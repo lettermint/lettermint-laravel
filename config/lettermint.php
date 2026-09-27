@@ -54,6 +54,19 @@ return [
 
         /*
         |--------------------------------------------------------------------------
+        | Automatic Route Registration
+        |--------------------------------------------------------------------------
+        |
+        | When true, the package registers POST /{prefix}/webhook. Set this to
+        | false if you want to register the webhook route yourself using
+        | WebhookController and VerifyWebhookSignature.
+        |
+        */
+
+        'enabled' => env('LETTERMINT_WEBHOOK_ENABLED', true),
+
+        /*
+        |--------------------------------------------------------------------------
         | Webhook Secret
         |--------------------------------------------------------------------------
         |

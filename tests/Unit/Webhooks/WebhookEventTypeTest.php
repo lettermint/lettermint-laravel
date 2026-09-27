@@ -102,6 +102,29 @@ it('creates correct event class for MessageCreated', function () {
     expect($event->data->subject)->toBe('Test Subject');
 });
 
+it('creates a failed message event with an optional recipient', function (?string $recipient) {
+    $payload = [
+        'id' => 'test-id',
+        'event' => 'message.failed',
+        'timestamp' => '2024-01-01T00:00:00Z',
+        'data' => [
+            'message_id' => 'msg-123',
+            'recipient' => $recipient,
+            'reason' => 'Expired',
+            'response' => ['status_code' => 500],
+            'metadata' => [],
+        ],
+    ];
+
+    $event = WebhookEventType::MessageFailed->toEvent($payload);
+
+    expect($event)->toBeInstanceOf(MessageFailed::class)
+        ->and($event->data->recipient)->toBe($recipient);
+})->with([
+    'recipient present' => 'test@example.com',
+    'recipient absent' => null,
+]);
+
 it('creates correct event class for WebhookTest', function () {
     $payload = [
         'id' => 'test-id',
