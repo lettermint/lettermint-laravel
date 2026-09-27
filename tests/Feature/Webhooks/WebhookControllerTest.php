@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Event;
 use Lettermint\Laravel\Events\LettermintWebhookEvent;
 use Lettermint\Laravel\Events\MessageDelivered;
 use Lettermint\Laravel\Events\MessageHardBounced;
+use Lettermint\Laravel\Events\MessageInbound;
 use Lettermint\Laravel\Events\WebhookTest as WebhookTestEvent;
 
 beforeEach(function () {
@@ -246,3 +247,55 @@ it('registers webhook route with default prefix', function () {
 
     expect($url)->toContain('/lettermint/webhook');
 });
+
+it('dispatches inbound mail with an attachment that has no filename', function (array $filenameData, string $contentType, string $expectedFilename) {
+    Event::fake([MessageInbound::class]);
+
+    $content = "From: sender@example.com\r\nSubject: Attached email\r\n\r\nExample content";
+    $payload = json_encode([
+        'id' => 'webhook-inbound',
+        'event' => 'message.inbound',
+        'timestamp' => '2026-09-25T07:47:31Z',
+        'data' => [
+            'route' => 'support',
+            'message_id' => 'inbound-message',
+            'from' => ['email' => 'sender@example.com', 'name' => 'Sender'],
+            'to' => [['email' => 'help@example.com']],
+            'recipient' => 'help@example.com',
+            'subject' => 'Re: [T-12345678] Support request',
+            'date' => '2026-09-25T07:47:30Z',
+            'body' => ['text' => 'Please see the attached email.', 'html' => null],
+            'attachments' => [[
+                ...$filenameData,
+                'content' => base64_encode($content),
+                'content_type' => $contentType,
+                'size' => strlen($content),
+                'content_id' => 'attached-email',
+            ]],
+        ],
+    ]);
+    $headers = createWebhookSignature($payload, 'test-webhook-secret');
+
+    $response = $this->call('POST', route('lettermint.webhook'), [], [], [], [
+        'HTTP_X_LETTERMINT_SIGNATURE' => $headers['X-Lettermint-Signature'],
+        'HTTP_X_LETTERMINT_DELIVERY' => $headers['X-Lettermint-Delivery'],
+        'CONTENT_TYPE' => 'application/json',
+    ], $payload);
+
+    $response->assertOk()->assertJson(['status' => 'ok']);
+    Event::assertDispatched(MessageInbound::class, function (MessageInbound $event) use ($expectedFilename, $contentType, $content): bool {
+        $attachment = $event->data->attachments[0];
+
+        return $event->data->body->text === 'Please see the attached email.'
+            && $attachment->filename === $expectedFilename
+            && $attachment->contentType === $contentType
+            && $attachment->getDecodedContent() === $content
+            && $attachment->size === strlen($content)
+            && $attachment->contentId === 'attached-email';
+    });
+})->with([
+    'null filename' => [['filename' => null], 'message/rfc822', 'attachment.eml'],
+    'missing filename' => [[], 'message/rfc822', 'attachment.eml'],
+    'another content type' => [['filename' => null], 'application/octet-stream', 'attachment'],
+    'original filename' => [['filename' => 'original.eml'], 'message/rfc822', 'original.eml'],
+]);
