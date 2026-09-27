@@ -13,12 +13,12 @@ final readonly class EmailAttachment
     ) {}
 
     /**
-     * @param  array{filename: string, content: string, content_type: string, size: int, content_id?: string|null}  $data
+     * @param  array{filename?: string|null, content: string, content_type: string, size: int, content_id?: string|null}  $data
      */
     public static function fromArray(array $data): self
     {
         return new self(
-            filename: $data['filename'],
+            filename: $data['filename'] ?? ($data['content_type'] === 'message/rfc822' ? 'attachment.eml' : 'attachment'),
             content: $data['content'],
             contentType: $data['content_type'],
             size: $data['size'],
