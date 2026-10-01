@@ -2,6 +2,20 @@
 
 All notable changes to `lettermint-laravel` will be documented in this file.
 
+## 2.3.0 - 2026-10-01
+
+### What's Changed
+
+* Read the release bot identity from GitHub by @bjarn in https://github.com/lettermint/lettermint-laravel/pull/41
+* Add suppression webhook events by @timvandijck in https://github.com/lettermint/lettermint-laravel/pull/42
+* fix(webhooks): decode scheduling and auto-reply events by @bjarn in https://github.com/lettermint/lettermint-laravel/pull/43
+
+### New Contributors
+
+* @timvandijck made their first contribution in https://github.com/lettermint/lettermint-laravel/pull/42
+
+**Full Changelog**: https://github.com/lettermint/lettermint-laravel/compare/2.2.2...2.3.0
+
 ## 2.2.2 - 2026-09-27
 
 ### What's Changed
