@@ -439,6 +439,11 @@ Event::listen(MessageHardBounced::class, function (MessageHardBounced $event) {
 | `MessageOpened`        | `message.opened`         | Recipient opened the email       |
 | `MessageClicked`       | `message.clicked`        | Recipient clicked a link         |
 | `MessageInbound`       | `message.inbound`        | Inbound email received           |
+| `MessageAutoReplied`   | `message.auto_replied`   | An automatic reply was received |
+| `MessageScheduled`     | `message.scheduled`      | A message was scheduled |
+| `MessageRescheduled`   | `message.rescheduled`    | A message schedule was changed |
+| `MessageCanceled`      | `message.canceled`       | A scheduled message was canceled |
+| `MessageReleased`      | `message.released`       | A scheduled message was released |
 | `SuppressionAdded`     | `suppression.added`      | Suppression entry added          |
 | `SuppressionRemoved`   | `suppression.removed`    | Suppression entry removed        |
 | `WebhookTest`          | `webhook.test`           | Test event from dashboard        |
