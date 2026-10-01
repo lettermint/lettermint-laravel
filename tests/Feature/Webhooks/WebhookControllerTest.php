@@ -5,7 +5,10 @@ use Lettermint\Laravel\Events\LettermintWebhookEvent;
 use Lettermint\Laravel\Events\MessageDelivered;
 use Lettermint\Laravel\Events\MessageHardBounced;
 use Lettermint\Laravel\Events\MessageInbound;
+use Lettermint\Laravel\Events\SuppressionAdded;
+use Lettermint\Laravel\Events\SuppressionRemoved;
 use Lettermint\Laravel\Events\WebhookTest as WebhookTestEvent;
+use Lettermint\Laravel\Webhooks\WebhookEventType;
 
 beforeEach(function () {
     config()->set('lettermint.webhooks.secret', 'test-webhook-secret');
@@ -299,3 +302,61 @@ it('dispatches inbound mail with an attachment that has no filename', function (
     'another content type' => [['filename' => null], 'application/octet-stream', 'attachment'],
     'original filename' => [['filename' => 'original.eml'], 'message/rfc822', 'original.eml'],
 ]);
+
+it('handles signed suppression webhooks and dispatches typed events', function (string $eventType, string $eventClass, string $type, string $value, string $appliesTo): void {
+    Event::fake();
+
+    $payload = json_encode([
+        'id' => 'webhook-123',
+        'event' => $eventType,
+        'timestamp' => '2024-01-15T10:30:00Z',
+        'context' => [
+            'scope' => 'team',
+            'team_id' => 'team-123',
+            'project_id' => null,
+            'route_id' => null,
+        ],
+        'data' => [
+            'suppression_id' => 'suppression-456',
+            'type' => $type,
+            'value' => $value,
+            'reason' => 'manual',
+            'applies_to' => $appliesTo,
+        ],
+    ]);
+
+    $headers = createWebhookSignature($payload, 'test-webhook-secret');
+
+    $this->call(
+        'POST',
+        route('lettermint.webhook'),
+        [],
+        [],
+        [],
+        [
+            'HTTP_X_LETTERMINT_SIGNATURE' => $headers['X-Lettermint-Signature'],
+            'HTTP_X_LETTERMINT_DELIVERY' => $headers['X-Lettermint-Delivery'],
+            'CONTENT_TYPE' => 'application/json',
+        ],
+        $payload
+    )->assertOk()->assertJson(['status' => 'ok']);
+
+    Event::assertDispatchedTimes($eventClass, 1);
+    Event::assertDispatched($eventClass, function ($event) use ($eventType, $type, $value, $appliesTo): bool {
+        return $event->getEnvelope()->id === 'webhook-123'
+            && $event->getEnvelope()->event === WebhookEventType::from($eventType)
+            && $event->getEnvelope()->timestamp->format('c') === '2024-01-15T10:30:00+00:00'
+            && $event->data->suppressionId === 'suppression-456'
+            && $event->data->type === $type
+            && $event->data->value === $value
+            && $event->data->reason === 'manual'
+            && $event->data->appliesTo === $appliesTo;
+    });
+})->with([
+    'added' => ['suppression.added', SuppressionAdded::class],
+    'removed' => ['suppression.removed', SuppressionRemoved::class],
+])->with([
+    'email' => ['email', 'test@example.com'],
+    'domain' => ['domain', 'example.com'],
+    'extension' => ['extension', 'com'],
+])->with(['all', 'broadcast']);
