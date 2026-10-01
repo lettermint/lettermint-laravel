@@ -3,6 +3,8 @@
 namespace Lettermint\Laravel\Webhooks;
 
 use Lettermint\Laravel\Events\LettermintWebhookEvent;
+use Lettermint\Laravel\Events\MessageAutoReplied;
+use Lettermint\Laravel\Events\MessageCanceled;
 use Lettermint\Laravel\Events\MessageClicked;
 use Lettermint\Laravel\Events\MessageCreated;
 use Lettermint\Laravel\Events\MessageDelivered;
@@ -11,6 +13,9 @@ use Lettermint\Laravel\Events\MessageHardBounced;
 use Lettermint\Laravel\Events\MessageInbound;
 use Lettermint\Laravel\Events\MessageOpened;
 use Lettermint\Laravel\Events\MessagePolicyRejected;
+use Lettermint\Laravel\Events\MessageReleased;
+use Lettermint\Laravel\Events\MessageRescheduled;
+use Lettermint\Laravel\Events\MessageScheduled;
 use Lettermint\Laravel\Events\MessageSent;
 use Lettermint\Laravel\Events\MessageSoftBounced;
 use Lettermint\Laravel\Events\MessageSpamComplaint;
@@ -19,6 +24,8 @@ use Lettermint\Laravel\Events\MessageUnsubscribed;
 use Lettermint\Laravel\Events\SuppressionAdded;
 use Lettermint\Laravel\Events\SuppressionRemoved;
 use Lettermint\Laravel\Events\WebhookTest;
+use Lettermint\Laravel\Webhooks\Data\MessageAutoRepliedData;
+use Lettermint\Laravel\Webhooks\Data\MessageCanceledData;
 use Lettermint\Laravel\Webhooks\Data\MessageClickedData;
 use Lettermint\Laravel\Webhooks\Data\MessageCreatedData;
 use Lettermint\Laravel\Webhooks\Data\MessageDeliveredData;
@@ -27,6 +34,9 @@ use Lettermint\Laravel\Webhooks\Data\MessageHardBouncedData;
 use Lettermint\Laravel\Webhooks\Data\MessageInboundData;
 use Lettermint\Laravel\Webhooks\Data\MessageOpenedData;
 use Lettermint\Laravel\Webhooks\Data\MessagePolicyRejectedData;
+use Lettermint\Laravel\Webhooks\Data\MessageReleasedData;
+use Lettermint\Laravel\Webhooks\Data\MessageRescheduledData;
+use Lettermint\Laravel\Webhooks\Data\MessageScheduledData;
 use Lettermint\Laravel\Webhooks\Data\MessageSentData;
 use Lettermint\Laravel\Webhooks\Data\MessageSoftBouncedData;
 use Lettermint\Laravel\Webhooks\Data\MessageSpamComplaintData;
@@ -39,6 +49,11 @@ use Lettermint\Laravel\Webhooks\Data\WebhookTestData;
 
 enum WebhookEventType: string
 {
+    case MessageScheduled = 'message.scheduled';
+    case MessageRescheduled = 'message.rescheduled';
+    case MessageCanceled = 'message.canceled';
+    case MessageReleased = 'message.released';
+    case MessageAutoReplied = 'message.auto_replied';
     case MessageCreated = 'message.created';
     case MessageSent = 'message.sent';
     case MessageDelivered = 'message.delivered';
@@ -83,6 +98,11 @@ enum WebhookEventType: string
         $data = $rawPayload['data'] ?? [];
 
         return match ($this) {
+            self::MessageScheduled => new MessageScheduled($envelope, MessageScheduledData::fromArray($data)),
+            self::MessageRescheduled => new MessageRescheduled($envelope, MessageRescheduledData::fromArray($data)),
+            self::MessageCanceled => new MessageCanceled($envelope, MessageCanceledData::fromArray($data)),
+            self::MessageReleased => new MessageReleased($envelope, MessageReleasedData::fromArray($data)),
+            self::MessageAutoReplied => new MessageAutoReplied($envelope, MessageAutoRepliedData::fromArray($data)),
             self::MessageCreated => new MessageCreated($envelope, MessageCreatedData::fromArray($data)),
             self::MessageSent => new MessageSent($envelope, MessageSentData::fromArray($data)),
             self::MessageDelivered => new MessageDelivered($envelope, MessageDeliveredData::fromArray($data)),
