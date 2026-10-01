@@ -439,6 +439,8 @@ Event::listen(MessageHardBounced::class, function (MessageHardBounced $event) {
 | `MessageOpened`        | `message.opened`         | Recipient opened the email       |
 | `MessageClicked`       | `message.clicked`        | Recipient clicked a link         |
 | `MessageInbound`       | `message.inbound`        | Inbound email received           |
+| `SuppressionAdded`     | `suppression.added`      | Suppression entry added          |
+| `SuppressionRemoved`   | `suppression.removed`    | Suppression entry removed        |
 | `WebhookTest`          | `webhook.test`           | Test event from dashboard        |
 
 ### Listening to All Events
@@ -492,6 +494,8 @@ Each event type has its own typed data class:
 | `MessageOpened`      | `messageId`, `subject`, `recipient`, `openedAt`, `firstOpen`, `deviceType`, `clientType`, `bot`        |
 | `MessageClicked`     | `messageId`, `subject`, `recipient`, `clickedAt`, `destinationUrl`, `linkIndex`, `firstClick`, `bot`   |
 | `MessageInbound`     | `route`, `messageId`, `from`, `to`, `subject`, `body`, `headers`, `attachments`, `isSpam`, `spamScore` |
+| `SuppressionAdded`   | `suppressionId`, `type`, `value`, `reason`, `appliesTo`                                               |
+| `SuppressionRemoved` | `suppressionId`, `type`, `value`, `reason`, `appliesTo`                                               |
 | `WebhookTest`        | `message`, `webhookId`, `timestamp`                                                                    |
 
 ### Helper Methods
