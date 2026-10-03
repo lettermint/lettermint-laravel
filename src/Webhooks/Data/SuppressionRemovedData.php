@@ -13,16 +13,16 @@ final readonly class SuppressionRemovedData
     ) {}
 
     /**
-     * @param  array<string, mixed>  $data
+     * @param  array<array-key, mixed>  $data
      */
     public static function fromArray(array $data): self
     {
         return new self(
-            suppressionId: $data['suppression_id'],
-            type: $data['type'],
-            value: $data['value'],
-            reason: $data['reason'],
-            appliesTo: $data['applies_to'],
+            suppressionId: Field::string($data, 'suppression_id') ?? '',
+            type: Field::string($data, 'type') ?? '',
+            value: Field::string($data, 'value') ?? '',
+            reason: Field::string($data, 'reason') ?? '',
+            appliesTo: Field::string($data, 'applies_to') ?? '',
         );
     }
 }

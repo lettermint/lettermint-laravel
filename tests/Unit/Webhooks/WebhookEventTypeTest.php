@@ -17,6 +17,7 @@ use Lettermint\Laravel\Events\SuppressionAdded;
 use Lettermint\Laravel\Events\SuppressionRemoved;
 use Lettermint\Laravel\Events\WebhookTest;
 use Lettermint\Laravel\Webhooks\WebhookEventType;
+use Lettermint\Types\WebhookEvent;
 
 it('can create event type from string value', function () {
     expect(WebhookEventType::from('message.created'))->toBe(WebhookEventType::MessageCreated);
@@ -341,3 +342,13 @@ it('does not classify suppression changes as message delivery issues', function 
     expect($type->isBounce())->toBeFalse()
         ->and($type->isDeliveryIssue())->toBeFalse();
 })->with(['suppression.added', 'suppression.removed']);
+
+it('knows every webhook event the PHP SDK knows', function () {
+    $known = array_column(WebhookEventType::cases(), 'value');
+    $sdk = WebhookEvent::VALUES;
+
+    sort($known);
+    sort($sdk);
+
+    expect($known)->toBe($sdk);
+});

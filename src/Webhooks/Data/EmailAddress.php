@@ -10,13 +10,13 @@ final readonly class EmailAddress
     ) {}
 
     /**
-     * @param  array{email: string, name?: string|null}  $data
+     * @param  array<array-key, mixed>  $data
      */
     public static function fromArray(array $data): self
     {
         return new self(
-            email: $data['email'],
-            name: $data['name'] ?? null,
+            email: Field::string($data, 'email') ?? '',
+            name: Field::string($data, 'name'),
         );
     }
 }
