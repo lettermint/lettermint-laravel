@@ -6,96 +6,98 @@
 [![Total Downloads](https://img.shields.io/packagist/dt/lettermint/lettermint-laravel.svg?style=flat-square)](https://packagist.org/packages/lettermint/lettermint-laravel)
 [![Join our Discord server](https://img.shields.io/discord/1305510095588819035?logo=discord&logoColor=eee&label=Discord&labelColor=464ce5&color=0D0E28&cacheSeconds=43200)](https://lettermint.co/r/discord)
 
-Easily integrate [Lettermint](https://lettermint.co) into your Laravel application.
+Send email from Laravel through [Lettermint](https://lettermint.co), use the Lettermint Team API, and receive verified webhook events. The package builds on the official [Lettermint PHP SDK](https://github.com/lettermint/lettermint-php) 3.0.
 
----
+Upgrading from 2.x? Read [UPGRADE.md](UPGRADE.md).
 
 ## Requirements
 
-- PHP 8.2 or higher
-- Laravel 9 or higher
-
+- PHP 8.2 or later
+- Laravel 10, 11, 12 or 13
 
 ## Installation
-
-You can install the package via composer:
 
 ```bash
 composer require lettermint/lettermint-laravel
 ```
 
-You can publish the config file with:
+Optionally publish the config file:
 
 ```bash
 php artisan vendor:publish --tag="lettermint-config"
 ```
 
-This creates a `config/lettermint.php` file where you can add your project and API tokens.
+This creates `config/lettermint.php`.
 
 ## Configuration
 
-### Setting your project token
+### Tokens
 
-Add your Lettermint project token in your `.env` file. This token is used for sending email through Laravel mail:
-
-```env
-LETTERMINT_PROJECT_TOKEN=your-lettermint-project-token
-```
-
-The legacy `LETTERMINT_TOKEN` environment variable is still supported, but
-`LETTERMINT_PROJECT_TOKEN` is preferred for new applications.
-
-Or update the `config/lettermint.php` file as needed.
-
-### Setting your API token
-
-Add your Lettermint API token in your `.env` file when you want to use the Team API from your Laravel application:
+Lettermint has two kinds of API tokens. Add the ones you need to your `.env` file:
 
 ```env
-LETTERMINT_API_TOKEN=your-lettermint-api-token
+# Sends email: the mail transport and Lettermint::emails()
+LETTERMINT_PROJECT_TOKEN=lm_...
+
+# The Team API: domains, messages, projects, routes, webhooks, ...
+LETTERMINT_TEAM_TOKEN=lm_team_...
 ```
 
-### Setting the request timeout
+| Variable | Config key | Token | Used by |
+| --- | --- | --- | --- |
+| `LETTERMINT_PROJECT_TOKEN` | `lettermint.token` | Project sending token, from your project settings | The mail transport and `Lettermint::emails()` |
+| `LETTERMINT_TEAM_TOKEN` | `lettermint.api_token` | Team API token | Every other part of the client |
 
-The default Lettermint API request timeout is 15 seconds. You can override it in your `.env` file:
+Configure one token or both. Each part uses its own token and never falls back to the other one: with only a project token you can send email, and a Team API call throws a `Lettermint\Exceptions\LettermintConfigException` that names the missing token before any request is made.
+
+The names used by earlier versions still work: `LETTERMINT_TOKEN` is read when `LETTERMINT_PROJECT_TOKEN` is not set, and `LETTERMINT_API_TOKEN` when `LETTERMINT_TEAM_TOKEN` is not set.
+
+You can also set the tokens in `config/services.php`. Values in `config/lettermint.php` take precedence:
+
+```php
+'lettermint' => [
+    'token' => env('LETTERMINT_PROJECT_TOKEN'),
+    'api_token' => env('LETTERMINT_TEAM_TOKEN'),
+],
+```
+
+### Request timeout
+
+Requests time out after 15 seconds. The timeout covers the whole request, including reading the response. Change it in your `.env` file:
 
 ```env
 LETTERMINT_TIMEOUT=30
 ```
 
-### Add the transport
+## Sending email
 
-In your `config/mail.php`, set the default option to lettermint:
+### Set up the mailer
+
+Add a mailer that uses the `lettermint` transport to `config/mail.php`:
+
 ```php
-        'lettermint' => [
-            'transport' => 'lettermint',
-        ],
-```
-
-### Add the service
-
-In your `config/services.php`, add the Lettermint service:
-```php
+'mailers' => [
     'lettermint' => [
-        'token' => env('LETTERMINT_PROJECT_TOKEN', env('LETTERMINT_TOKEN')),
-        'api_token' => env('LETTERMINT_API_TOKEN'),
+        'transport' => 'lettermint',
     ],
+],
 ```
 
-### Using the Team API
+Then make it the default in your `.env` file:
 
-Resolve the PHP SDK API client from Laravel's container:
+```env
+MAIL_MAILER=lettermint
+```
+
+Laravel mail works as usual:
 
 ```php
-use Lettermint\Client\ApiClient;
-
-$projects = app(ApiClient::class)->projects->list();
-$team = app('lettermint.api')->team->retrieve();
+Mail::to($user)->send(new WelcomeMail($user));
 ```
 
-### Using Routes
+### Routes
 
-If you would like to specify the Lettermint route that should be used by a given mailer, you may add the `route_id` configuration option to the mailer's configuration array in your `config/mail.php` file:
+To send through a specific Lettermint route, add `route_id` to the mailer:
 
 ```php
 'lettermint' => [
@@ -104,9 +106,7 @@ If you would like to specify the Lettermint route that should be used by a given
 ],
 ```
 
-### Multiple mailers with different routes
-
-You can configure multiple mailers using the same Lettermint transport but with different route IDs:
+You can configure several mailers with different routes:
 
 ```php
 // config/mail.php
@@ -122,60 +122,16 @@ You can configure multiple mailers using the same Lettermint transport but with 
 ],
 ```
 
-Then use them in your application:
 ```php
 Mail::mailer('lettermint_marketing')->to($user)->send(new MarketingEmail());
 Mail::mailer('lettermint_transactional')->to($user)->send(new TransactionalEmail());
 ```
 
-## Idempotency Support
+### Idempotency
 
-The Lettermint Laravel driver prevents duplicate email sends by using idempotency keys. This is especially useful when emails are sent from queued jobs that might be retried.
+An idempotency key makes retries safe: Lettermint processes a key once, so a retried queue job does not send the email twice.
 
-### Configuration Options
-
-You can configure idempotency behavior per mailer in your `config/mail.php`:
-
-```php
-'mailers' => [
-    'lettermint' => [
-        'transport' => 'lettermint',
-        'idempotency' => true, // Enable automatic content-based idempotency
-        'idempotency_window' => 86400, // Window in seconds (default: 24 hours)
-    ],
-    'lettermint_marketing' => [
-        'transport' => 'lettermint',
-        'route_id' => 'marketing',
-        'idempotency' => false, // Disable automatic idempotency
-    ],
-],
-```
-
-#### Idempotency Options:
-
-- **`idempotency`**: Enable/disable automatic content-based idempotency
-  - `true`: Generates idempotency keys based on email content
-  - `false` (default): Disables automatic idempotency (user headers still work)
-- **`idempotency_window`**: Time window in seconds for deduplication
-  - Default: `86400` (24 hours to match Lettermint API retention)
-  - Set to match your needs (e.g., `3600` for 1 hour, `300` for 5 minutes)
-  - When set to `86400` or higher, emails with identical content are permanently deduplicated within the API retention period
-
-### Automatic Idempotency
-
-When `idempotency` is `true`, the driver generates a unique key based on:
-- Email subject, recipients (to, cc, bcc), and content
-- Sender address (to differentiate between different sending contexts)
-- Time window (if less than 24 hours)
-
-This ensures:
-- Identical emails are only sent once within the configured time window
-- Retried queue jobs won't create duplicate emails
-- Different emails or the same email after the time window will be sent normally
-
-### Custom Idempotency Keys
-
-You can override any configuration by setting a custom idempotency key in the email headers:
+Set a key on an email with the `Idempotency-Key` header. It is sent as a request header, not as an email header:
 
 ```php
 Mail::send('emails.welcome', $data, function ($message) {
@@ -185,102 +141,25 @@ Mail::send('emails.welcome', $data, function ($message) {
 });
 ```
 
-**Priority order** (highest to lowest):
-1. `Idempotency-Key` header in the email (always respected, overrides any config)
-2. Automatic Message-ID (if `idempotency` is `true`)
-3. No idempotency (if `idempotency` is `false`)
-
-**Important:** The `idempotency: false` configuration only disables *automatic* idempotency. User-provided `Idempotency-Key` headers are always respected, giving users full control on a per-email basis.
-
-## Tags and Metadata
-
-The Lettermint Laravel driver supports adding tags and metadata to your emails for better organization, tracking, and analytics.
-
-### Using Tags
-
-Tags help you categorize and filter your emails in the Lettermint dashboard. You can add tags using Laravel's native mailable methods:
-
-#### Method 1: Using Laravel's tag() method (Recommended)
+Or let the transport derive a key from the email's content with the `idempotency` mailer option:
 
 ```php
-use App\Mail\WelcomeEmail;
-use Illuminate\Support\Facades\Mail;
-
-Mail::send((new WelcomeEmail($user))
-    ->tag('onboarding')
-);
+'lettermint' => [
+    'transport' => 'lettermint',
+    'idempotency' => true,          // Default: false
+    'idempotency_window' => 86400,  // Seconds; default: 24 hours
+],
 ```
 
-#### Method 2: Using the envelope method in your Mailable
+The automatic key is a hash of the subject, the recipients (to, cc, bcc), the body and the sender. With a window shorter than 24 hours, the key also includes the current time window, so the same email can be sent again in the next window. With the default window of 24 hours, which matches how long Lettermint keeps idempotency keys, identical emails are sent once.
 
-```php
-use Illuminate\Mail\Mailables\Envelope;
+An `Idempotency-Key` header always takes precedence. `'idempotency' => false` only disables the automatic key.
 
-class WelcomeEmail extends Mailable
-{
-    public function envelope(): Envelope
-    {
-        return new Envelope(
-            subject: 'Welcome to our platform!',
-            tags: ['onboarding'], // Only one tag is allowed
-        );
-    }
-}
-```
+Each email gets its own key: the transport never reuses a key, or any other part of an email, for the next email.
 
-#### Method 3: Using custom header (backward compatibility)
+### Tags and metadata
 
-To minimise confusion with the way of tagging emails sent via the SMTP relay, the Lettermint Laravel driver also supports the `X-LM-Tag` header.
-This will be converted to the `TagHeader` envelope method automatically.
-
-```php
-use Illuminate\Mail\Mailables\Headers;
-
-class WelcomeEmail extends Mailable
-{
-    public function headers(): Headers
-    {
-        return new Headers(
-            text: [
-                'X-LM-Tag' => 'onboarding',
-            ],
-        );
-    }
-}
-```
-
-### Using Metadata
-
-Metadata allows you to attach custom key-value pairs to your emails for enhanced tracking and analytics:
-
-#### Method 1: Using Laravel's metadata() method (Recommended)
-
-```php
-Mail::send((new OrderConfirmation($order))
-    ->metadata('order_id', $order->id)
-    ->metadata('customer_id', $order->customer_id)
-);
-```
-
-#### Method 2: Using the envelope method
-
-```php
-public function envelope(): Envelope
-{
-    return new Envelope(
-        subject: 'Order Confirmation',
-        metadata: [
-            'order_id' => $this->order->id,
-            'customer_id' => $this->order->customer_id,
-            'order_total' => $this->order->total,
-        ],
-    );
-}
-```
-
-### Combining Tags and Metadata
-
-You can use both tags and metadata together:
+Tags and metadata use Laravel's mailable methods:
 
 ```php
 Mail::send((new OrderShipped($order))
@@ -290,88 +169,173 @@ Mail::send((new OrderShipped($order))
 );
 ```
 
-Or in your mailable:
+Or in the mailable's envelope:
 
 ```php
+use Illuminate\Mail\Mailables\Envelope;
+
 public function envelope(): Envelope
 {
     return new Envelope(
         subject: 'Your order has shipped!',
-        tags: ['transactional', 'shipping'],
+        tags: ['transactional'],
         metadata: [
             'order_id' => $this->order->id,
-            'tracking_number' => $this->order->tracking_number,
-            'carrier' => $this->order->carrier,
         ],
     );
 }
 ```
 
-### Note on Compatibility
+Lettermint stores one tag per email; when a mailable has several, the last one is sent. The `X-LM-Tag` header is also supported, for consistency with the SMTP relay; a tag set with `tag()` takes precedence over it.
 
-- The driver supports Laravel's native `tag()` and `metadata()` methods (Laravel 9+)
-- The `X-LM-Tag` header is supported for backward compatibility
-- When both `TagHeader` and `X-LM-Tag` are present, the `TagHeader` takes precedence
+### Attachments
+
+Attachments, including inline images referenced with `cid:`, are sent as they are. Every attachment needs a file name; the transport throws a `TransportException` before sending when one has none.
+
+### Errors
+
+When Lettermint rejects an email or cannot be reached, the transport throws Symfony's `TransportException`, as other Laravel mail drivers do. Its code is the HTTP status (`0` when no response was received), and `getPrevious()` returns the SDK exception with the details:
+
+```php
+use Lettermint\Exceptions\RateLimitException;
+use Lettermint\Exceptions\ValidationException;
+use Symfony\Component\Mailer\Exception\TransportException;
+
+try {
+    Mail::to($user)->send(new WelcomeMail($user));
+} catch (TransportException $e) {
+    $error = $e->getPrevious();
+
+    if ($error instanceof ValidationException) {
+        report($e); // $error->errors holds the field errors
+    } elseif ($error instanceof RateLimitException) {
+        // Retry after $error->retryAfter seconds, with the same idempotency key.
+    }
+}
+```
+
+See the [PHP SDK README](https://github.com/lettermint/lettermint-php#errors) for every exception class.
+
+## Using the Lettermint client
+
+The package registers one `Lettermint\Lettermint` client in the container, built from your configuration. It holds no message state, so the same instance serves the mail transport, queue workers and Octane. Use it through the facade, dependency injection or the container:
+
+```php
+use Lettermint\Laravel\Facades\Lettermint;
+
+$result = Lettermint::emails()->send([
+    'from' => 'Acme <hello@acme.com>',
+    'to' => ['jane@example.com'],
+    'subject' => 'Welcome to Acme',
+    'html' => '<p>Thanks for signing up.</p>',
+], idempotencyKey: "welcome-{$user->id}");
+
+$result->message_id;
+```
+
+```php
+use Lettermint\Lettermint;
+
+class InvoiceMailer
+{
+    public function __construct(private Lettermint $lettermint) {}
+
+    public function send(Invoice $invoice): void
+    {
+        $this->lettermint->emails->compose()
+            ->from('billing@acme.com')
+            ->to($invoice->customer->email)
+            ->subject("Invoice {$invoice->number}")
+            ->html(view('emails.invoice', ['invoice' => $invoice])->render())
+            ->send(idempotencyKey: "invoice-{$invoice->id}");
+    }
+}
+```
+
+The facade exposes each part of the client as a method (`Lettermint::emails()`, `Lettermint::domains()`, …) and forwards the client's methods (`Lettermint::ping()`). On an injected client, the parts are properties (`$lettermint->emails`, `$lettermint->domains`).
+
+### Team API
+
+With `LETTERMINT_TEAM_TOKEN` configured:
+
+```php
+use Lettermint\Laravel\Facades\Lettermint;
+
+$domains = Lettermint::domains()->list(['filter' => ['status' => 'verified']]);
+
+foreach (Lettermint::messages()->iterate(['page' => ['size' => 100]]) as $message) {
+    // Follows the cursor through every page.
+}
+
+$team = Lettermint::team()->retrieve();
+```
+
+The [PHP SDK README](https://github.com/lettermint/lettermint-php) documents every part of the client, the email builder, batch sending, scheduling, pagination and the response types.
+
+### Queued jobs
+
+The client refuses to be serialized because it holds your tokens. Don't store it in a property of a queued job, event or listener; resolve it where you use it, for example as a `handle()` argument:
+
+```php
+public function handle(Lettermint $lettermint): void
+{
+    $lettermint->emails->send($this->message);
+}
+```
+
+### Custom HTTP client
+
+To send the client's requests through your own Guzzle client, for example with a proxy, bind it before the client is first resolved:
+
+```php
+use GuzzleHttp\Client;
+use Lettermint\Laravel\LettermintServiceProvider;
+
+$this->app->bind(LettermintServiceProvider::HTTP_CLIENT, fn () => new Client(['proxy' => 'http://proxy.internal:3128']));
+```
+
+The SDK still disables redirects and applies the timeout to every request.
 
 ## Webhooks
 
-The package provides built-in support for handling Lettermint webhooks with automatic signature verification.
+The package receives Lettermint webhooks, verifies their signature with the PHP SDK, and dispatches a Laravel event for each delivery.
 
 ### Configuration
 
-Add your webhook signing secret to your `.env` file:
+Add the webhook's signing secret, including its `whsec_` prefix, to your `.env` file:
 
 ```env
-LETTERMINT_WEBHOOK_SECRET=your-webhook-signing-secret
+LETTERMINT_WEBHOOK_SECRET=whsec_...
 ```
 
-You can optionally configure the route prefix and timestamp tolerance:
+Optionally change the route prefix and the timestamp tolerance (in seconds):
 
 ```env
 LETTERMINT_WEBHOOK_PREFIX=lettermint
 LETTERMINT_WEBHOOK_TOLERANCE=300
 ```
 
-Or publish the config file and modify the webhooks section:
+### Webhook endpoint
 
-```php
-// config/lettermint.php
-'webhooks' => [
-    'enabled' => env('LETTERMINT_WEBHOOK_ENABLED', true),
-    'secret' => env('LETTERMINT_WEBHOOK_SECRET'),
-    'prefix' => env('LETTERMINT_WEBHOOK_PREFIX', 'lettermint'),
-    'tolerance' => env('LETTERMINT_WEBHOOK_TOLERANCE', 300),
-],
-```
-
-### Webhook Endpoint
-
-The package automatically registers a webhook endpoint at:
+The package registers this endpoint, named `lettermint.webhook`:
 
 ```
 POST /{prefix}/webhook
 ```
 
-By default, this is `POST /lettermint/webhook` (named `lettermint.webhook`). Configure this URL in your Lettermint dashboard.
+By default this is `POST /lettermint/webhook`. Add its URL to the webhook in your Lettermint dashboard.
+
+Every request must carry the `X-Lettermint-Signature` and `X-Lettermint-Delivery` headers that Lettermint sends, and the raw body exactly as it was sent. If a proxy sits in front of your application, make sure it forwards both headers and does not change the body. A request that fails verification gets a `401` response whose `reason` says why, for example `signature_mismatch` or `timestamp_out_of_tolerance`, and no event is dispatched.
 
 ### Custom webhook routes
 
-To register the webhook yourself (for example to constrain it to a specific domain or subdomain), disable automatic registration:
+To register the endpoint yourself, for example on a specific domain, disable the automatic route:
 
 ```env
 LETTERMINT_WEBHOOK_ENABLED=false
 ```
 
-Or in `config/lettermint.php`:
-
-```php
-'webhooks' => [
-    'enabled' => false,
-    // ...
-],
-```
-
-If you previously published the config file, add the `enabled` key to the `webhooks` array. Then register the existing controller and signature middleware in your own routes file:
+Then register the controller and the signature middleware in your routes file:
 
 ```php
 use Illuminate\Support\Facades\Route;
@@ -385,28 +349,19 @@ Route::post(
     ->middleware(VerifyWebhookSignature::class);
 ```
 
-You can wrap that registration in `Route::domain(...)` (or any other route group) if the endpoint should only be available on a specific domain. Keeping the `lettermint.webhook` name and configured prefix means existing Lettermint dashboard URLs and `route('lettermint.webhook')` calls continue to work.
+You can wrap the registration in `Route::domain(...)` or another route group. Keeping the name and prefix means existing dashboard URLs and `route('lettermint.webhook')` calls keep working.
 
-### Handling Webhook Events
+In your own controller, `VerifyWebhookSignature::payload($request)` returns the verified `Lettermint\WebhookPayload`.
 
-The package dispatches Laravel events for each webhook type. Listen to specific events in your `EventServiceProvider` or using closures:
+### Handling webhook events
+
+Listen to the events you need:
 
 ```php
+use Illuminate\Support\Facades\Event;
 use Lettermint\Laravel\Events\MessageDelivered;
 use Lettermint\Laravel\Events\MessageHardBounced;
-use Lettermint\Laravel\Events\MessageSpamComplaint;
 
-// In EventServiceProvider
-protected $listen = [
-    MessageDelivered::class => [
-        HandleEmailDelivered::class,
-    ],
-    MessageHardBounced::class => [
-        HandleEmailBounced::class,
-    ],
-];
-
-// Or using closures
 Event::listen(MessageDelivered::class, function (MessageDelivered $event) {
     Log::info('Email delivered', [
         'message_id' => $event->data->messageId,
@@ -416,58 +371,102 @@ Event::listen(MessageDelivered::class, function (MessageDelivered $event) {
 });
 
 Event::listen(MessageHardBounced::class, function (MessageHardBounced $event) {
-    // Handle permanent bounce - consider disabling the recipient
+    // A permanent bounce: consider disabling the recipient.
     $recipient = $event->data->recipient;
     $reason = $event->data->response->content;
 });
 ```
 
-### Available Events
+### Available events
 
-| Event Class            | Webhook Type             | Description                      |
-|------------------------|--------------------------|----------------------------------|
-| `MessageCreated`       | `message.created`        | Message accepted for processing  |
-| `MessageSent`          | `message.sent`           | Message sent to recipient server |
-| `MessageDelivered`     | `message.delivered`      | Message successfully delivered   |
-| `MessageHardBounced`   | `message.hard_bounced`   | Permanent delivery failure       |
-| `MessageSoftBounced`   | `message.soft_bounced`   | Temporary delivery failure       |
-| `MessageSpamComplaint` | `message.spam_complaint` | Recipient reported spam          |
-| `MessageFailed`        | `message.failed`         | Processing failure               |
-| `MessageSuppressed`    | `message.suppressed`     | Message suppressed               |
-| `MessagePolicyRejected`| `message.policy_rejected`| Rejected by sending policy       |
-| `MessageUnsubscribed`  | `message.unsubscribed`   | Recipient unsubscribed           |
-| `MessageOpened`        | `message.opened`         | Recipient opened the email       |
-| `MessageClicked`       | `message.clicked`        | Recipient clicked a link         |
-| `MessageInbound`       | `message.inbound`        | Inbound email received           |
-| `MessageAutoReplied`   | `message.auto_replied`   | An automatic reply was received |
-| `MessageScheduled`     | `message.scheduled`      | A message was scheduled |
-| `MessageRescheduled`   | `message.rescheduled`    | A message schedule was changed |
-| `MessageCanceled`      | `message.canceled`       | A scheduled message was canceled |
-| `MessageReleased`      | `message.released`       | A scheduled message was released |
-| `SuppressionAdded`     | `suppression.added`      | Suppression entry added          |
-| `SuppressionRemoved`   | `suppression.removed`    | Suppression entry removed        |
-| `WebhookTest`          | `webhook.test`           | Test event from dashboard        |
+| Event class | Webhook type | Description |
+| --- | --- | --- |
+| `MessageCreated` | `message.created` | Message accepted for processing |
+| `MessageSent` | `message.sent` | Message sent to the recipient's server |
+| `MessageDelivered` | `message.delivered` | Message delivered |
+| `MessageHardBounced` | `message.hard_bounced` | Permanent delivery failure |
+| `MessageSoftBounced` | `message.soft_bounced` | Temporary delivery failure |
+| `MessageSpamComplaint` | `message.spam_complaint` | Recipient reported spam |
+| `MessageFailed` | `message.failed` | Processing failure |
+| `MessageSuppressed` | `message.suppressed` | Message suppressed |
+| `MessagePolicyRejected` | `message.policy_rejected` | Rejected by the sending policy |
+| `MessageUnsubscribed` | `message.unsubscribed` | Recipient unsubscribed |
+| `MessageOpened` | `message.opened` | Recipient opened the email |
+| `MessageClicked` | `message.clicked` | Recipient clicked a link |
+| `MessageInbound` | `message.inbound` | Inbound email received |
+| `MessageAutoReplied` | `message.auto_replied` | An automatic reply was received |
+| `MessageScheduled` | `message.scheduled` | A message was scheduled |
+| `MessageRescheduled` | `message.rescheduled` | A message's schedule changed |
+| `MessageCanceled` | `message.canceled` | A scheduled message was canceled |
+| `MessageReleased` | `message.released` | A scheduled message was released |
+| `SuppressionAdded` | `suppression.added` | Suppression entry added |
+| `SuppressionRemoved` | `suppression.removed` | Suppression entry removed |
+| `WebhookTest` | `webhook.test` | Test event from the dashboard |
 
-### Unknown Event Types
+All event classes are in the `Lettermint\Laravel\Events` namespace.
 
-When Lettermint sends an event type that your installed package version does not know yet, the webhook is still acknowledged with a `200` response and an `UnknownWebhookEventReceived` event is dispatched with the raw event name and the full verified payload. Update the package to receive a typed event instead.
+### Event structure
+
+Each typed event has three properties:
+
+```php
+// The envelope, common to all events
+$event->envelope->id;        // Delivery ID (string)
+$event->envelope->event;     // WebhookEventType enum
+$event->envelope->timestamp; // ?DateTimeImmutable
+
+// The typed data, per event (here MessageDelivered)
+$event->data->messageId;            // string
+$event->data->recipient;            // string
+$event->data->response->statusCode; // ?int
+$event->data->response->content;    // ?string
+$event->data->metadata;             // array
+$event->data->tag;                  // ?string
+
+// The complete verified payload, as decoded from the request
+$event->payload['context'];      // e.g. ['scope' => 'project', 'project_id' => '…', …]
+$event->payload['data']['tags']; // fields the typed data does not map
+```
+
+| Event | Data properties |
+| --- | --- |
+| `MessageCreated` | `messageId`, `from`, `to`, `cc`, `bcc`, `replyTo`, `subject`, `metadata`, `tag` |
+| `MessageSent`, `MessageSpamComplaint` | `messageId`, `recipient`, `metadata`, `tag` |
+| `MessageDelivered`, `MessageHardBounced`, `MessageSoftBounced` | `messageId`, `recipient`, `response`, `metadata`, `tag` |
+| `MessageFailed` | `messageId`, `recipient`, `reason`, `response`, `metadata`, `tag` |
+| `MessageSuppressed` | `messageId`, `recipient`, `reason`, `metadata`, `tag` |
+| `MessagePolicyRejected` | `messageId`, `subject`, `reason`, `score`, `spamSymbols`, `metadata`, `tag` |
+| `MessageUnsubscribed` | `messageId`, `recipient`, `unsubscribedAt`, `metadata`, `tag` |
+| `MessageOpened` | `messageId`, `subject`, `recipient`, `openedAt`, `firstOpen`, `deviceType`, `clientType`, `clientName`, `userAgent`, `bot`, `metadata`, `tag` |
+| `MessageClicked` | `messageId`, `subject`, `recipient`, `clickedAt`, `destinationUrl`, `linkIndex`, `anchorText`, `firstClick`, `deviceType`, `clientType`, `clientName`, `userAgent`, `bot`, `metadata`, `tag` |
+| `MessageInbound` | `route`, `messageId`, `from`, `to`, `cc`, `recipient`, `subaddress`, `replyTo`, `subject`, `date`, `body`, `tag`, `headers`, `attachments`, `isSpam`, `spamScore`, `spamSymbols` |
+| `MessageAutoReplied` | `messageId`, `subject`, `autoReply`, `metadata`, `tag` |
+| `MessageScheduled`, `MessageRescheduled`, `MessageCanceled`, `MessageReleased` | `messageId`, `subject`, the schedule times, `metadata`, `tag` |
+| `SuppressionAdded`, `SuppressionRemoved` | `suppressionId`, `type`, `value`, `reason`, `appliesTo` |
+| `WebhookTest` | `message`, `webhookId`, `timestamp` |
+
+The typed data tolerates changes to the payload: a field Lettermint omits, or sends with an unexpected type, reads as `null` (or an empty list) instead of failing the delivery, and fields the package does not know are ignored but stay available in `$event->payload`. Fields that Lettermint may omit or send as `null` are nullable; identifiers that every delivery carries, such as `messageId`, are strings.
+
+Inbound attachments are delivered as base64 `content`, or as a signed `url` (with `expiresAt`) when the route is set to deliver attachment URLs. `$attachment->getDecodedContent()` returns the raw bytes, or `null` for a URL attachment.
+
+### Unknown event types
+
+When Lettermint sends an event type that your version of the package does not know yet, the delivery is still acknowledged with a `200` response, and an `UnknownWebhookEventReceived` event is dispatched with the event name and the complete verified payload. Update the package to receive a typed event instead.
 
 ```php
 use Lettermint\Laravel\Events\UnknownWebhookEventReceived;
 
 Event::listen(UnknownWebhookEventReceived::class, function (UnknownWebhookEventReceived $event) {
     Log::info('Unhandled Lettermint webhook', [
-        'type' => $event->event,     // e.g. "message.some_new_event"
+        'type' => $event->event, // e.g. "message.some_new_event"
         'id' => $event->payload['id'] ?? null,
     ]);
 });
 ```
 
-`UnknownWebhookEventReceived` does not extend `LettermintWebhookEvent`, because it has no typed envelope or data. It does implement the `WebhookEvent` interface, so a listener on that interface (see below) receives it too.
+### Listening to all events
 
-### Listening to All Events
-
-Every webhook event implements the `Lettermint\Laravel\Contracts\WebhookEvent` interface, so a single listener on it receives all of them: every typed event, plus `UnknownWebhookEventReceived` for event types this package version does not know yet.
+Every webhook event implements the `Lettermint\Laravel\Contracts\WebhookEvent` interface, so one listener on it receives all of them: every typed event, and `UnknownWebhookEventReceived`.
 
 ```php
 use Illuminate\Support\Facades\Event;
@@ -491,55 +490,15 @@ Event::listen(WebhookEvent::class, function (WebhookEvent $event) {
 ```
 
 > [!NOTE]
-> Listening on the abstract `LettermintWebhookEvent` class does not work. Laravel matches listeners on an event's own class and the interfaces it implements, not on its parent classes. Use the `WebhookEvent` interface instead.
+> A listener on the abstract `LettermintWebhookEvent` class receives nothing: Laravel matches listeners on an event's own class and its interfaces, not its parent classes. Use the `WebhookEvent` interface.
 
-### Event Structure
+### Helper methods
 
-Each event has two main properties:
-
-- `$event->envelope` - Common webhook envelope (id, event type, timestamp)
-- `$event->data` - Event-specific typed payload
+The `WebhookEventType` enum groups event types:
 
 ```php
-// Envelope (common to all events)
-$event->envelope->id;        // Webhook event ID (string)
-$event->envelope->event;     // WebhookEventType enum
-$event->envelope->timestamp; // DateTimeImmutable
-
-// Data (typed per event)
-// For MessageDelivered:
-$event->data->messageId;              // string
-$event->data->recipient;              // string
-$event->data->response->statusCode;   // int
-$event->data->response->content;      // string|null
-$event->data->metadata;               // array
-$event->data->tag;                    // string|null
-```
-
-### Typed Event Data
-
-Each event type has its own typed data class:
-
-| Event                | Data Properties                                                                                        |
-|----------------------|--------------------------------------------------------------------------------------------------------|
-| `MessageDelivered`   | `messageId`, `recipient`, `response`, `metadata`, `tag`                                                |
-| `MessageHardBounced` | `messageId`, `recipient`, `response`, `metadata`, `tag`                                                |
-| `MessageCreated`     | `messageId`, `from`, `to`, `cc`, `bcc`, `subject`, `metadata`, `tag`                                   |
-| `MessagePolicyRejected` | `messageId`, `subject`, `reason`, `score`, `spamSymbols`, `metadata`, `tag`                         |
-| `MessageOpened`      | `messageId`, `subject`, `recipient`, `openedAt`, `firstOpen`, `deviceType`, `clientType`, `bot`        |
-| `MessageClicked`     | `messageId`, `subject`, `recipient`, `clickedAt`, `destinationUrl`, `linkIndex`, `firstClick`, `bot`   |
-| `MessageInbound`     | `route`, `messageId`, `from`, `to`, `subject`, `body`, `headers`, `attachments`, `isSpam`, `spamScore` |
-| `SuppressionAdded`   | `suppressionId`, `type`, `value`, `reason`, `appliesTo`                                               |
-| `SuppressionRemoved` | `suppressionId`, `type`, `value`, `reason`, `appliesTo`                                               |
-| `WebhookTest`        | `message`, `webhookId`, `timestamp`                                                                    |
-
-### Helper Methods
-
-The `WebhookEventType` enum provides helper methods:
-
-```php
-$event->envelope->event->isBounce();        // true for hard/soft bounces
-$event->envelope->event->isDeliveryIssue(); // true for bounces, failed, suppressed
+$event->envelope->event->isBounce();        // true for hard and soft bounces
+$event->envelope->event->isDeliveryIssue(); // true for bounces, failed, suppressed and policy-rejected messages
 ```
 
 ## Testing
