@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Event;
 use Illuminate\Testing\TestResponse;
+use Lettermint\Laravel\Contracts\WebhookEvent;
 use Lettermint\Laravel\Events\LettermintWebhookEvent;
 use Lettermint\Laravel\Events\MessageDelivered;
 use Lettermint\Laravel\Events\MessageHardBounced;
@@ -435,4 +436,53 @@ it('does not dispatch the generic unknown event for known event types', function
 
     Event::assertDispatchedTimes(WebhookTestEvent::class, 1);
     Event::assertNotDispatched(UnknownWebhookEventReceived::class);
+});
+
+it('lets a single listener on the WebhookEvent interface receive typed and unknown webhook events', function () {
+    // Real dispatcher: the listener is matched through the interfaces the events implement.
+    $received = [];
+    Event::listen(WebhookEvent::class, function (WebhookEvent $event) use (&$received) {
+        $received[] = $event;
+    });
+
+    postSignedWebhook([
+        'id' => 'webhook-123',
+        'event' => 'webhook.test',
+        'timestamp' => '2024-01-15T10:30:00Z',
+        'data' => [
+            'message' => 'Test webhook',
+            'webhook_id' => 'wh-789',
+            'timestamp' => 1705315800,
+        ],
+    ])->assertOk();
+
+    postSignedWebhook([
+        'id' => 'webhook-456',
+        'event' => 'message.some_future_event',
+        'timestamp' => '2024-01-15T10:30:00Z',
+        'data' => ['message_id' => 'msg-456'],
+    ])->assertOk();
+
+    expect($received)->toHaveCount(2);
+    expect($received[0])->toBeInstanceOf(WebhookTestEvent::class);
+    expect($received[0]->getEnvelope()->id)->toBe('webhook-123');
+    expect($received[1])->toBeInstanceOf(UnknownWebhookEventReceived::class);
+    expect($received[1]->event)->toBe('message.some_future_event');
+});
+
+it('does not match a listener registered on the abstract base class', function () {
+    // Documents why the README points at the interface: the dispatcher ignores parent classes.
+    $received = [];
+    Event::listen(LettermintWebhookEvent::class, function () use (&$received) {
+        $received[] = true;
+    });
+
+    postSignedWebhook([
+        'id' => 'webhook-123',
+        'event' => 'webhook.test',
+        'timestamp' => '2024-01-15T10:30:00Z',
+        'data' => ['message' => 'Test webhook', 'webhook_id' => 'wh-789', 'timestamp' => 1705315800],
+    ])->assertOk();
+
+    expect($received)->toBeEmpty();
 });

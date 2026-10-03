@@ -2,6 +2,8 @@
 
 namespace Lettermint\Laravel\Events;
 
+use Lettermint\Laravel\Contracts\WebhookEvent;
+
 /**
  * Dispatched for a verified webhook whose event type this package version does
  * not know yet, for example an event type Lettermint added after this release.
@@ -10,7 +12,7 @@ namespace Lettermint\Laravel\Events;
  * retry it or disable the endpoint. Known event types keep dispatching their
  * typed events and never dispatch this one.
  */
-final class UnknownWebhookEventReceived
+final class UnknownWebhookEventReceived implements WebhookEvent
 {
     /**
      * @param  string  $event  The raw event name, e.g. "message.some_new_event" ('' when missing).

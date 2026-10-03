@@ -463,22 +463,35 @@ Event::listen(UnknownWebhookEventReceived::class, function (UnknownWebhookEventR
 });
 ```
 
-`UnknownWebhookEventReceived` does not extend `LettermintWebhookEvent`, because it has no typed envelope or data.
+`UnknownWebhookEventReceived` does not extend `LettermintWebhookEvent`, because it has no typed envelope or data. It does implement the `WebhookEvent` interface, so a listener on that interface (see below) receives it too.
 
 ### Listening to All Events
 
-You can listen to all webhook events using the base class:
+Every webhook event implements the `Lettermint\Laravel\Contracts\WebhookEvent` interface, so a single listener on it receives all of them: every typed event, plus `UnknownWebhookEventReceived` for event types this package version does not know yet.
 
 ```php
+use Illuminate\Support\Facades\Event;
+use Lettermint\Laravel\Contracts\WebhookEvent;
 use Lettermint\Laravel\Events\LettermintWebhookEvent;
+use Lettermint\Laravel\Events\UnknownWebhookEventReceived;
 
-Event::listen(LettermintWebhookEvent::class, function (LettermintWebhookEvent $event) {
+Event::listen(WebhookEvent::class, function (WebhookEvent $event) {
+    if ($event instanceof UnknownWebhookEventReceived) {
+        Log::info('Unknown webhook received', ['type' => $event->event]);
+
+        return;
+    }
+
+    /** @var LettermintWebhookEvent $event */
     Log::info('Webhook received', [
         'type' => $event->getEnvelope()->event->value,
         'id' => $event->getEnvelope()->id,
     ]);
 });
 ```
+
+> [!NOTE]
+> Listening on the abstract `LettermintWebhookEvent` class does not work. Laravel matches listeners on an event's own class and the interfaces it implements, not on its parent classes. Use the `WebhookEvent` interface instead.
 
 ### Event Structure
 
