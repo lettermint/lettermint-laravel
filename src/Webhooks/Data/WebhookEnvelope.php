@@ -14,7 +14,12 @@ final readonly class WebhookEnvelope
     ) {}
 
     /**
+     * Only for event types WebhookEventType knows; the webhook controller
+     * dispatches UnknownWebhookEventReceived for any other type.
+     *
      * @param  array{id: string, event: string, timestamp: string}  $data
+     *
+     * @throws \ValueError When the event type is unknown.
      */
     public static function fromArray(array $data): self
     {

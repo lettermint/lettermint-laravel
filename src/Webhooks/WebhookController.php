@@ -4,6 +4,7 @@ namespace Lettermint\Laravel\Webhooks;
 
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Lettermint\Laravel\Events\UnknownWebhookEventReceived;
 
 class WebhookController
 {
@@ -12,9 +13,14 @@ class WebhookController
         /** @var array<string, mixed> $payload */
         $payload = $request->attributes->get('lettermint_webhook_payload');
 
-        $eventType = WebhookEventType::from($payload['event']);
+        $eventName = is_string($payload['event'] ?? null) ? $payload['event'] : '';
+        $eventType = WebhookEventType::tryFrom($eventName);
 
-        event($eventType->toEvent($payload));
+        // Event types added to the API after this package version must not fail
+        // the delivery, or Lettermint retries it and may disable the endpoint.
+        event($eventType === null
+            ? new UnknownWebhookEventReceived($eventName, $payload)
+            : $eventType->toEvent($payload));
 
         return response()->json(['status' => 'ok']);
     }

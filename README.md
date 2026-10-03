@@ -448,6 +448,23 @@ Event::listen(MessageHardBounced::class, function (MessageHardBounced $event) {
 | `SuppressionRemoved`   | `suppression.removed`    | Suppression entry removed        |
 | `WebhookTest`          | `webhook.test`           | Test event from dashboard        |
 
+### Unknown Event Types
+
+When Lettermint sends an event type that your installed package version does not know yet, the webhook is still acknowledged with a `200` response and an `UnknownWebhookEventReceived` event is dispatched with the raw event name and the full verified payload. Update the package to receive a typed event instead.
+
+```php
+use Lettermint\Laravel\Events\UnknownWebhookEventReceived;
+
+Event::listen(UnknownWebhookEventReceived::class, function (UnknownWebhookEventReceived $event) {
+    Log::info('Unhandled Lettermint webhook', [
+        'type' => $event->event,     // e.g. "message.some_new_event"
+        'id' => $event->payload['id'] ?? null,
+    ]);
+});
+```
+
+`UnknownWebhookEventReceived` does not extend `LettermintWebhookEvent`, because it has no typed envelope or data.
+
 ### Listening to All Events
 
 You can listen to all webhook events using the base class:

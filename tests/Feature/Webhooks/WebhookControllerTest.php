@@ -1,12 +1,14 @@
 <?php
 
 use Illuminate\Support\Facades\Event;
+use Illuminate\Testing\TestResponse;
 use Lettermint\Laravel\Events\LettermintWebhookEvent;
 use Lettermint\Laravel\Events\MessageDelivered;
 use Lettermint\Laravel\Events\MessageHardBounced;
 use Lettermint\Laravel\Events\MessageInbound;
 use Lettermint\Laravel\Events\SuppressionAdded;
 use Lettermint\Laravel\Events\SuppressionRemoved;
+use Lettermint\Laravel\Events\UnknownWebhookEventReceived;
 use Lettermint\Laravel\Events\WebhookTest as WebhookTestEvent;
 use Lettermint\Laravel\Webhooks\WebhookEventType;
 
@@ -14,6 +16,29 @@ beforeEach(function () {
     config()->set('lettermint.webhooks.secret', 'test-webhook-secret');
     config()->set('lettermint.webhooks.tolerance', 300);
 });
+
+/**
+ * @param  array<string, mixed>  $payload
+ */
+function postSignedWebhook(array $payload): TestResponse
+{
+    $body = json_encode($payload);
+    $headers = createWebhookSignature($body, 'test-webhook-secret');
+
+    return test()->call(
+        'POST',
+        route('lettermint.webhook'),
+        [],
+        [],
+        [],
+        [
+            'HTTP_X_LETTERMINT_SIGNATURE' => $headers['X-Lettermint-Signature'],
+            'HTTP_X_LETTERMINT_DELIVERY' => $headers['X-Lettermint-Delivery'],
+            'CONTENT_TYPE' => 'application/json',
+        ],
+        $body
+    );
+}
 
 function createWebhookSignature(string $payload, string $secret, ?int $timestamp = null): array
 {
@@ -360,3 +385,54 @@ it('handles signed suppression webhooks and dispatches typed events', function (
     'domain' => ['domain', 'example.com'],
     'extension' => ['extension', 'com'],
 ])->with(['all', 'broadcast']);
+
+it('acknowledges unknown webhook event types and dispatches a generic event with the raw payload', function (array $envelope) {
+    // Record every package event through the real dispatcher.
+    $dispatched = [];
+    Event::listen('Lettermint\\Laravel\\Events\\*', function (string $name, array $data) use (&$dispatched) {
+        $dispatched[] = $data[0];
+    });
+
+    $payload = [
+        'id' => 'webhook-123',
+        ...$envelope,
+        'timestamp' => '2024-01-15T10:30:00Z',
+        'data' => [
+            'message_id' => 'msg-456',
+            'something_new' => ['nested' => true],
+        ],
+    ];
+
+    postSignedWebhook($payload)
+        ->assertOk()
+        ->assertJson(['status' => 'ok']);
+
+    expect($dispatched)->toHaveCount(1);
+    expect($dispatched[0])->toBeInstanceOf(UnknownWebhookEventReceived::class);
+    expect($dispatched[0]->event)->toBe(is_string($envelope['event'] ?? null) ? $envelope['event'] : '');
+    expect($dispatched[0]->payload)->toBe($payload);
+})->with([
+    'new event type' => [['event' => 'message.some_future_event']],
+    'new event namespace' => [['event' => 'domain.verified']],
+    'differently cased known type' => [['event' => 'MESSAGE.DELIVERED']],
+    'missing event name' => [[]],
+    'non-string event name' => [['event' => ['message.delivered']]],
+]);
+
+it('does not dispatch the generic unknown event for known event types', function () {
+    Event::fake();
+
+    postSignedWebhook([
+        'id' => 'webhook-123',
+        'event' => 'webhook.test',
+        'timestamp' => '2024-01-15T10:30:00Z',
+        'data' => [
+            'message' => 'Test webhook',
+            'webhook_id' => 'wh-789',
+            'timestamp' => 1705315800,
+        ],
+    ])->assertOk()->assertJson(['status' => 'ok']);
+
+    Event::assertDispatchedTimes(WebhookTestEvent::class, 1);
+    Event::assertNotDispatched(UnknownWebhookEventReceived::class);
+});
