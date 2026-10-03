@@ -129,7 +129,7 @@ it('returns 401 for invalid signature', function () {
     );
 
     $response->assertStatus(401);
-    $response->assertJson(['error' => 'Invalid signature']);
+    $response->assertJson(['error' => 'Invalid signature', 'reason' => 'signature_header_malformed']);
 
     Event::assertNotDispatched(LettermintWebhookEvent::class);
 });
@@ -162,9 +162,26 @@ it('returns 401 for missing signature header', function () {
         $payload
     );
 
-    $response->assertStatus(401);
+    $response->assertStatus(401)->assertJson(['reason' => 'signature_header_missing']);
 
     Event::assertNotDispatched(LettermintWebhookEvent::class);
+});
+
+it('returns 401 for a missing delivery header', function () {
+    $received = [];
+    Event::listen(WebhookEvent::class, function (WebhookEvent $event) use (&$received) {
+        $received[] = $event;
+    });
+
+    $body = json_encode(['id' => 'webhook-123', 'event' => 'webhook.test', 'data' => []]);
+    $headers = createWebhookSignature($body, 'test-webhook-secret');
+
+    $this->call('POST', route('lettermint.webhook'), [], [], [], [
+        'HTTP_X_LETTERMINT_SIGNATURE' => $headers['X-Lettermint-Signature'],
+        'CONTENT_TYPE' => 'application/json',
+    ], $body)->assertStatus(401)->assertExactJson(['error' => 'Invalid signature', 'reason' => 'delivery_header_missing']);
+
+    expect($received)->toBe([]);
 });
 
 it('dispatches correct event for message.delivered', function () {
@@ -410,12 +427,29 @@ it('acknowledges unknown webhook event types and dispatches a generic event with
 
     expect($dispatched)->toHaveCount(1);
     expect($dispatched[0])->toBeInstanceOf(UnknownWebhookEventReceived::class);
-    expect($dispatched[0]->event)->toBe(is_string($envelope['event'] ?? null) ? $envelope['event'] : '');
+    expect($dispatched[0]->event)->toBe($envelope['event']);
     expect($dispatched[0]->payload)->toBe($payload);
 })->with([
     'new event type' => [['event' => 'message.some_future_event']],
     'new event namespace' => [['event' => 'domain.verified']],
     'differently cased known type' => [['event' => 'MESSAGE.DELIVERED']],
+]);
+
+it('rejects a signed payload without a string event name', function (array $envelope) {
+    $received = [];
+    Event::listen(WebhookEvent::class, function (WebhookEvent $event) use (&$received) {
+        $received[] = $event;
+    });
+
+    postSignedWebhook([
+        'id' => 'webhook-123',
+        ...$envelope,
+        'timestamp' => '2024-01-15T10:30:00Z',
+        'data' => ['message_id' => 'msg-456'],
+    ])->assertStatus(401)->assertExactJson(['error' => 'Invalid signature', 'reason' => 'payload_invalid']);
+
+    expect($received)->toBe([]);
+})->with([
     'missing event name' => [[]],
     'non-string event name' => [['event' => ['message.delivered']]],
 ]);

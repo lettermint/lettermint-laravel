@@ -7,8 +7,10 @@ return [
     | Lettermint Project Token
     |--------------------------------------------------------------------------
     |
-    | Every Lettermint project has a unique project token. You can find your
-    | token in your Lettermint project settings.
+    | Every Lettermint project has a unique project token, used to send email
+    | (the mail transport and Lettermint::emails()). You can find your token
+    | in your Lettermint project settings. LETTERMINT_TOKEN is still read
+    | as a fallback for applications configured before version 2.
     |
     */
 
@@ -16,15 +18,17 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Lettermint API Token
+    | Lettermint Team API Token
     |--------------------------------------------------------------------------
     |
-    | The Lettermint Team API uses a bearer API token. Use this token when
-    | interacting with projects, domains, routes, messages, and webhooks.
+    | The Lettermint Team API uses a team token (lm_team_...). Use this token
+    | when interacting with projects, domains, routes, messages, and webhooks.
+    | LETTERMINT_API_TOKEN, the name used by version 2, is still read as a
+    | fallback.
     |
     */
 
-    'api_token' => env('LETTERMINT_API_TOKEN'),
+    'api_token' => env('LETTERMINT_TEAM_TOKEN', env('LETTERMINT_API_TOKEN')),
 
     /*
     |--------------------------------------------------------------------------
@@ -37,7 +41,7 @@ return [
     |
     */
 
-    'timeout' => (int) env('LETTERMINT_TIMEOUT', 15),
+    'timeout' => (float) env('LETTERMINT_TIMEOUT', 15),
 
     /*
     |--------------------------------------------------------------------------

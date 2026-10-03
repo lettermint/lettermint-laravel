@@ -2,8 +2,8 @@
 
 namespace Lettermint\Laravel\Transport;
 
-use Exception;
-use Lettermint\Endpoints\EmailEndpoint;
+use Lettermint\Exceptions\LettermintException;
+use Lettermint\Lettermint;
 use LogicException;
 use Symfony\Component\Mailer\Envelope;
 use Symfony\Component\Mailer\Exception\TransportException;
@@ -35,7 +35,7 @@ class LettermintTransportFactory extends AbstractTransport
      * Create a new Lettermint transport instance.
      */
     public function __construct(
-        protected EmailEndpoint $emailEndpoint,
+        protected Lettermint $lettermint,
         protected array $config = []
     ) {
         parent::__construct();
@@ -44,10 +44,15 @@ class LettermintTransportFactory extends AbstractTransport
     /**
      * {@inheritDoc}
      *
-     * The transport (and the EmailEndpoint it holds) lives for the lifetime of
-     * the mailer, e.g. a whole queue worker. Each message is therefore built as
-     * a local payload and handed to the endpoint in a single send() call, so no
-     * per-message state can survive a failed send and leak into the next one.
+     * The transport (and the Lettermint client it holds) lives for the lifetime
+     * of the mailer, e.g. a whole queue worker. Each message is therefore built
+     * as a local payload and sent in a single emails->send() call together with
+     * its idempotency key, so no per-message state can survive a failed send
+     * and leak into the next one.
+     *
+     * @throws TransportException When the SDK rejects the message or the API
+     *                            fails; the code is the HTTP status, or 0 when
+     *                            no response was received.
      */
     protected function doSend(SentMessage $message): void
     {
@@ -67,19 +72,15 @@ class LettermintTransportFactory extends AbstractTransport
         $attachments = $this->getAttachments($email);
 
         try {
-            $payload = $this->buildPayload($email, $envelope, $attachments);
-            $idempotencyKey = $this->resolveIdempotencyKey($email);
+            $result = $this->lettermint->emails->send(
+                $this->buildPayload($email, $envelope, $attachments),
+                idempotencyKey: $this->resolveIdempotencyKey($email),
+            );
+            // get() rather than ->message_id: a response without the field
+            // must not set an empty Message-ID.
+            $messageId = $result->get('message_id');
 
-            // The endpoint only accepts the idempotency key through its builder;
-            // send() sends it as a request header and always clears it afterwards.
-            if ($idempotencyKey !== null) {
-                $this->emailEndpoint->idempotencyKey($idempotencyKey);
-            }
-
-            $result = $this->emailEndpoint->send($payload);
-            $messageId = $this->getMessageId($result);
-
-            if ($messageId !== null && $messageId !== '') {
+            if (is_string($messageId) && $messageId !== '') {
                 // RFC 5322 requires Message-ID format: <local-part@domain>
                 // Format the message_id to comply with RFC 5322 if it doesn't contain @
                 $formattedId = str_contains($messageId, '@')
@@ -88,10 +89,12 @@ class LettermintTransportFactory extends AbstractTransport
 
                 $message->setMessageId($formattedId);
             }
-        } catch (Exception $exception) {
+        } catch (LettermintException $exception) {
+            // ApiException and UnexpectedResponseException carry the HTTP status
+            // as their code; exceptions raised before a response carry 0.
             throw new TransportException(
                 sprintf('Sending email via Lettermint API failed: %s', $exception->getMessage()),
-                is_int($exception->getCode()) ? $exception->getCode() : 0,
+                $exception->getCode(),
                 $exception
             );
         }
@@ -278,29 +281,6 @@ class LettermintTransportFactory extends AbstractTransport
         return array_filter($envelope->getRecipients(), function (Address $address) use ($copies) {
             return in_array($address, $copies, true) === false;
         });
-    }
-
-    protected function getMessageId(mixed $result): ?string
-    {
-        if (is_array($result)) {
-            $messageId = $result['message_id'] ?? null;
-
-            return is_string($messageId) ? $messageId : null;
-        }
-
-        if (is_object($result) && method_exists($result, 'getAttribute')) {
-            $messageId = $result->getAttribute('message_id');
-
-            return is_string($messageId) ? $messageId : null;
-        }
-
-        if (is_object($result)) {
-            $messageId = $result->message_id ?? null;
-
-            return is_string($messageId) ? $messageId : null;
-        }
-
-        return null;
     }
 
     public function __toString(): string

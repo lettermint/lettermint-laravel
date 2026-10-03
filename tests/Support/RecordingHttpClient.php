@@ -2,59 +2,83 @@
 
 namespace Lettermint\Laravel\Tests\Support;
 
-use Lettermint\Client\HttpClient;
+use GuzzleHttp\Client;
+use GuzzleHttp\ClientInterface;
+use GuzzleHttp\HandlerStack;
+use GuzzleHttp\Promise\Create;
+use GuzzleHttp\Promise\PromiseInterface;
+use GuzzleHttp\Psr7\Response;
+use Psr\Http\Message\RequestInterface;
+use Psr\Http\Message\ResponseInterface;
 use Throwable;
 
 /**
  * HTTP-level test double for the Lettermint PHP SDK.
  *
- * A real EmailEndpoint is constructed with this client, so tests exercise the
- * exact JSON body and request headers the SDK would hand to Guzzle, without
- * performing a network request.
+ * A real Lettermint client is constructed with the Guzzle client from
+ * client(), so tests exercise the exact JSON body and request headers the SDK
+ * puts on the wire, without performing a network request.
  */
-class RecordingHttpClient extends HttpClient
+class RecordingHttpClient
 {
+    /**
+     * @var list<RequestInterface>
+     */
+    public array $sent = [];
+
     /**
      * @var list<array{path: string, data: array<array-key, mixed>, headers: array<string, string>}>
      */
     public array $requests = [];
 
     /**
-     * @var list<array<array-key, mixed>|Throwable>
+     * @var list<ResponseInterface|Throwable>
      */
     private array $responses = [];
 
-    public function __construct()
-    {
-        parent::__construct('test-token', 'https://api.lettermint.test/v1');
-    }
-
     /**
-     * Queue the response (or exception) for the next POST request.
+     * Queue the response for the next request: an array is sent as a JSON body
+     * with HTTP 200, a Throwable is thrown by the handler (e.g. a Guzzle
+     * ConnectException).
      *
-     * @param  array<array-key, mixed>|Throwable  $response
+     * @param  array<array-key, mixed>|ResponseInterface|Throwable  $response
      */
-    public function respondWith(array|Throwable $response): self
+    public function respondWith(array|ResponseInterface|Throwable $response): self
     {
-        $this->responses[] = $response;
+        $this->responses[] = is_array($response)
+            ? new Response(200, ['Content-Type' => 'application/json'], json_encode($response, JSON_THROW_ON_ERROR))
+            : $response;
 
         return $this;
     }
 
-    public function post(string $path, array $data, array $headers = []): mixed
+    /**
+     * Queue a JSON error response.
+     *
+     * @param  array<array-key, mixed>  $body
+     * @param  array<string, string>  $headers
+     */
+    public function respondWithError(int $status, array $body, array $headers = []): self
     {
-        $this->requests[] = ['path' => $path, 'data' => $data, 'headers' => $headers];
+        return $this->respondWith(new Response($status, ['Content-Type' => 'application/json'] + $headers, json_encode($body, JSON_THROW_ON_ERROR)));
+    }
 
-        $response = array_shift($this->responses) ?? ['message_id' => '123', 'status' => 'pending'];
+    public function client(): ClientInterface
+    {
+        return new Client(['handler' => HandlerStack::create(function (RequestInterface $request): PromiseInterface {
+            $this->record($request);
 
-        if ($response instanceof Throwable) {
-            throw $response;
-        }
+            $response = array_shift($this->responses)
+                ?? new Response(200, ['Content-Type' => 'application/json'], '{"message_id":"123","status":"pending"}');
 
-        return $response;
+            return $response instanceof Throwable ? Create::rejectionFor($response) : Create::promiseFor($response);
+        })]);
     }
 
     /**
+     * The last request in the shape the transport tests compare: the URL path,
+     * the decoded JSON body and the Idempotency-Key header when one was sent.
+     *
      * @return array{path: string, data: array<array-key, mixed>, headers: array<string, string>}
      */
     public function lastRequest(): array
@@ -66,5 +90,32 @@ class RecordingHttpClient extends HttpClient
         }
 
         return $request;
+    }
+
+    public function lastRawRequest(): RequestInterface
+    {
+        $request = end($this->sent);
+
+        if ($request === false) {
+            throw new \RuntimeException('No request was recorded.');
+        }
+
+        return $request;
+    }
+
+    private function record(RequestInterface $request): void
+    {
+        $this->sent[] = $request;
+
+        $body = (string) $request->getBody();
+        $headers = $request->hasHeader('Idempotency-Key')
+            ? ['Idempotency-Key' => $request->getHeaderLine('Idempotency-Key')]
+            : [];
+
+        $this->requests[] = [
+            'path' => $request->getUri()->getPath(),
+            'data' => $body === '' ? [] : json_decode($body, true, 512, JSON_THROW_ON_ERROR),
+            'headers' => $headers,
+        ];
     }
 }

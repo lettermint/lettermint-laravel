@@ -15,7 +15,7 @@ use Lettermint\Laravel\Contracts\WebhookEvent;
 final class UnknownWebhookEventReceived implements WebhookEvent
 {
     /**
-     * @param  string  $event  The raw event name, e.g. "message.some_new_event" ('' when missing).
+     * @param  string  $event  The raw event name, e.g. "message.some_new_event".
      * @param  array<string, mixed>  $payload  The complete verified webhook payload.
      */
     public function __construct(

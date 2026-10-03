@@ -1,9 +1,19 @@
 <?php
 
+use GuzzleHttp\Exception\ConnectException;
+use GuzzleHttp\Psr7\Request;
+use GuzzleHttp\Psr7\Response;
 use Illuminate\Mail\MailManager;
-use Lettermint\Endpoints\EmailEndpoint;
+use Lettermint\Exceptions\ConnectionException;
+use Lettermint\Exceptions\RateLimitException;
+use Lettermint\Exceptions\ServerException;
+use Lettermint\Exceptions\UnexpectedResponseException;
+use Lettermint\Exceptions\ValidationException;
+use Lettermint\Laravel\Exceptions\ApiTokenNotFoundException;
+use Lettermint\Laravel\LettermintServiceProvider;
 use Lettermint\Laravel\Tests\Support\RecordingHttpClient;
 use Lettermint\Laravel\Transport\LettermintTransportFactory;
+use Lettermint\Lettermint;
 use Symfony\Component\Mailer\Exception\TransportException;
 use Symfony\Component\Mailer\Header\MetadataHeader;
 use Symfony\Component\Mailer\Header\TagHeader;
@@ -13,7 +23,7 @@ use Symfony\Component\Mime\Header\Headers;
 use Symfony\Component\Mime\Part\DataPart;
 
 /*
- * These tests drive a real Lettermint\Endpoints\EmailEndpoint backed by an
+ * These tests drive a real Lettermint\Lettermint client backed by an
  * HTTP-level recording double, so they assert the exact JSON body and request
  * headers that reach the Lettermint API.
  */
@@ -22,8 +32,8 @@ beforeEach(function () {
     config()->set('services.lettermint.token', 'test-token');
 
     $this->http = new RecordingHttpClient;
-    $this->endpoint = new EmailEndpoint($this->http);
-    $this->transport = new LettermintTransportFactory($this->endpoint);
+    $this->lettermint = new Lettermint(sendingToken: 'test-token', httpClient: $this->http->client());
+    $this->transport = new LettermintTransportFactory($this->lettermint);
 });
 
 /**
@@ -91,7 +101,7 @@ function lettermintTestEmail(): Email
 }
 
 it('creates a transport instance', function () {
-    $transport = new LettermintTransportFactory($this->endpoint);
+    $transport = new LettermintTransportFactory($this->lettermint);
 
     expect($transport)->toBeInstanceOf(LettermintTransportFactory::class);
 });
@@ -332,7 +342,7 @@ it('sends inline attachments with their content id', function () {
 });
 
 it('sends the configured route_id', function () {
-    $transport = new LettermintTransportFactory($this->endpoint, ['route_id' => 'test-route-123']);
+    $transport = new LettermintTransportFactory($this->lettermint, ['route_id' => 'test-route-123']);
 
     $transport->send(lettermintTestEmail());
 
@@ -342,7 +352,7 @@ it('sends the configured route_id', function () {
 });
 
 it('does not send a route when route_id is not set or empty', function (array $config) {
-    $transport = new LettermintTransportFactory($this->endpoint, $config);
+    $transport = new LettermintTransportFactory($this->lettermint, $config);
 
     $transport->send(lettermintTestEmail());
 
@@ -433,7 +443,7 @@ it('omits tag and metadata when none are provided', function () {
 });
 
 it('sends a custom Idempotency-Key header as request header, not as email header', function (array $config) {
-    $transport = new LettermintTransportFactory($this->endpoint, $config);
+    $transport = new LettermintTransportFactory($this->lettermint, $config);
 
     $email = lettermintTestEmail();
     $email->getHeaders()->addHeader('Idempotency-Key', 'custom-key-123');
@@ -456,7 +466,7 @@ it('sends a custom Idempotency-Key header as request header, not as email header
 ]);
 
 it('does not send an Idempotency-Key when automatic idempotency is disabled', function (array $config) {
-    $transport = new LettermintTransportFactory($this->endpoint, $config);
+    $transport = new LettermintTransportFactory($this->lettermint, $config);
 
     $transport->send(lettermintTestEmail());
 
@@ -468,7 +478,7 @@ it('does not send an Idempotency-Key when automatic idempotency is disabled', fu
 ]);
 
 it('generates a content-based idempotency key with the default 24-hour window', function () {
-    $transport = new LettermintTransportFactory($this->endpoint, ['idempotency' => true]);
+    $transport = new LettermintTransportFactory($this->lettermint, ['idempotency' => true]);
 
     $email = lettermintTestEmail()
         ->to(new Address('to@example.com', 'Acme'))
@@ -494,7 +504,7 @@ it('generates a content-based idempotency key with the default 24-hour window', 
 });
 
 it('generates a time-bucketed idempotency key with a custom window', function () {
-    $transport = new LettermintTransportFactory($this->endpoint, ['idempotency' => true, 'idempotency_window' => 3600]);
+    $transport = new LettermintTransportFactory($this->lettermint, ['idempotency' => true, 'idempotency_window' => 3600]);
 
     $keyFor = fn (int $time) => hash('sha256', implode('|', [
         'Hello world!',
@@ -513,7 +523,7 @@ it('generates a time-bucketed idempotency key with a custom window', function ()
 });
 
 it('generates the same idempotency key for identical content and a different key for different content', function () {
-    $transport = new LettermintTransportFactory($this->endpoint, ['idempotency' => true]);
+    $transport = new LettermintTransportFactory($this->lettermint, ['idempotency' => true]);
 
     $transport->send(lettermintTestEmail());
     $transport->send(lettermintTestEmail());
@@ -526,7 +536,7 @@ it('generates the same idempotency key for identical content and a different key
 });
 
 it('sends every supported feature in a single payload', function () {
-    $transport = new LettermintTransportFactory($this->endpoint, ['route_id' => 'transactional']);
+    $transport = new LettermintTransportFactory($this->lettermint, ['route_id' => 'transactional']);
 
     $email = (new Email)
         ->from(new Address('from@example.com', 'Acme'))
@@ -586,12 +596,73 @@ it('sends every supported feature in a single payload', function () {
     ]);
 });
 
-it('throws a transport exception on API error', function () {
-    $this->http->respondWith(new Exception('Failed to send email'));
+it('throws a transport exception with the HTTP status when the API rejects the email', function () {
+    $this->http->respondWithError(422, [
+        'message' => 'The from field must be a verified domain.',
+        'errors' => ['from' => ['The from field must be a verified domain.']],
+    ]);
 
-    expect(fn () => $this->transport->send(lettermintTestEmail()))
-        ->toThrow(TransportException::class, 'Sending email via Lettermint API failed: Failed to send email');
+    try {
+        $this->transport->send(lettermintTestEmail());
+        $this->fail('Expected a TransportException.');
+    } catch (TransportException $exception) {
+        expect($exception->getMessage())->toBe('Sending email via Lettermint API failed: The from field must be a verified domain.')
+            ->and($exception->getCode())->toBe(422)
+            ->and($exception->getPrevious())->toBeInstanceOf(ValidationException::class)
+            ->and($exception->getPrevious()->errors)->toBe(['from' => ['The from field must be a verified domain.']]);
+    }
 });
+
+it('maps every SDK failure to a transport exception with the HTTP status as its code', function (Closure $respond, string $previous, int $code) {
+    $respond($this->http);
+
+    try {
+        $this->transport->send(lettermintTestEmail());
+        $this->fail('Expected a TransportException.');
+    } catch (TransportException $exception) {
+        expect($exception->getMessage())->toStartWith('Sending email via Lettermint API failed: ')
+            ->and($exception->getCode())->toBe($code)
+            ->and($exception->getPrevious())->toBeInstanceOf($previous);
+    }
+})->with([
+    'rate limited' => [fn (RecordingHttpClient $http) => $http->respondWithError(429, ['message' => 'Too Many Attempts.'], ['Retry-After' => '30']), RateLimitException::class, 429],
+    'server error' => [fn (RecordingHttpClient $http) => $http->respondWithError(503, ['message' => 'Service Unavailable']), ServerException::class, 503],
+    'html error page' => [fn (RecordingHttpClient $http) => $http->respondWith(new Response(502, ['Content-Type' => 'text/html'], '<html>Bad Gateway</html>')), UnexpectedResponseException::class, 502],
+    'connection failure' => [fn (RecordingHttpClient $http) => $http->respondWith(new ConnectException('Connection refused', new Request('POST', 'https://api.lettermint.co/v1/send'))), ConnectionException::class, 0],
+]);
+
+it('authenticates with the project token and never sends a team token', function () {
+    $this->transport->send(lettermintTestEmail());
+
+    $request = $this->http->lastRawRequest();
+
+    expect($request->getMethod())->toBe('POST')
+        ->and((string) $request->getUri())->toBe('https://api.lettermint.co/v1/send')
+        ->and($request->getHeaderLine('x-lettermint-token'))->toBe('test-token')
+        ->and($request->hasHeader('Authorization'))->toBeFalse();
+});
+
+it('sends through the container client and the configured mailer with the same payload', function () {
+    $http = new RecordingHttpClient;
+    app()->instance(LettermintServiceProvider::HTTP_CLIENT, $http->client());
+    config()->set('lettermint.token', 'container-token');
+    config()->set('mail.mailers.lettermint_routed', ['transport' => 'lettermint', 'route_id' => 'transactional', 'idempotency' => true]);
+
+    app(MailManager::class)->mailer('lettermint_routed')->getSymfonyTransport()->send(lettermintTestEmail());
+
+    expect($http->requests)->toHaveCount(1)
+        ->and($http->lastRequest()['data'])->toBe(lettermintPayload(['route' => 'transactional']))
+        ->and($http->lastRequest()['headers'])->toHaveKey('Idempotency-Key')
+        ->and($http->lastRawRequest()->getHeaderLine('x-lettermint-token'))->toBe('container-token');
+});
+
+it('refuses to create the mailer without a project token', function () {
+    config()->set('lettermint.token', null);
+    config()->set('services.lettermint.token', null);
+    config()->set('lettermint.api_token', 'lm_team_abc123');
+
+    app(MailManager::class)->createSymfonyTransport(['transport' => 'lettermint']);
+})->throws(ApiTokenNotFoundException::class, 'LETTERMINT_PROJECT_TOKEN');
 
 it('sets the Message-ID from the Lettermint API response', function () {
     $this->http->respondWith(['message_id' => 'lettermint-message-id-12345', 'status' => 'pending']);
@@ -661,7 +732,7 @@ it('does not leak state from a message that failed mid-build into the next messa
 ]);
 
 it('does not leak state from a message the API rejected into the next message', function () {
-    $this->http->respondWith(new Exception('Validation failed'));
+    $this->http->respondWithError(422, ['message' => 'Validation failed']);
 
     expect(fn () => $this->transport->send(lettermintStatefulEmail()))
         ->toThrow(TransportException::class, 'Validation failed');
@@ -677,7 +748,7 @@ it('does not leak state from a message the API rejected into the next message', 
 });
 
 it('does not reuse the previous message idempotency key', function () {
-    $transport = new LettermintTransportFactory($this->endpoint, ['idempotency' => true]);
+    $transport = new LettermintTransportFactory($this->lettermint, ['idempotency' => true]);
 
     $transport->send(lettermintStatefulEmail());
     $transport->send(lettermintTestEmail());
