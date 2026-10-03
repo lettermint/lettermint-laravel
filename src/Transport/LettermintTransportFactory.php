@@ -2,8 +2,8 @@
 
 namespace Lettermint\Laravel\Transport;
 
-use Exception;
-use Lettermint\Endpoints\EmailEndpoint;
+use Lettermint\Exceptions\LettermintException;
+use Lettermint\Lettermint;
 use LogicException;
 use Symfony\Component\Mailer\Envelope;
 use Symfony\Component\Mailer\Exception\TransportException;
@@ -35,7 +35,7 @@ class LettermintTransportFactory extends AbstractTransport
      * Create a new Lettermint transport instance.
      */
     public function __construct(
-        protected EmailEndpoint $emailEndpoint,
+        protected Lettermint $lettermint,
         protected array $config = []
     ) {
         parent::__construct();
@@ -43,6 +43,16 @@ class LettermintTransportFactory extends AbstractTransport
 
     /**
      * {@inheritDoc}
+     *
+     * The transport (and the Lettermint client it holds) lives for the lifetime
+     * of the mailer, e.g. a whole queue worker. Each message is therefore built
+     * as a local payload and sent in a single emails->send() call together with
+     * its idempotency key, so no per-message state can survive a failed send
+     * and leak into the next one.
+     *
+     * @throws TransportException When the SDK rejects the message or the API
+     *                            fails; the code is the HTTP status, or 0 when
+     *                            no response was received.
      */
     protected function doSend(SentMessage $message): void
     {
@@ -55,71 +65,22 @@ class LettermintTransportFactory extends AbstractTransport
         $email = MessageConverter::toEmail($original);
         $envelope = $message->getEnvelope();
 
-        $headers = [];
-        foreach ($email->getHeaders()->all() as $name => $header) {
-            if (in_array($name, self::BYPASS_HEADERS, true)) {
-                continue;
-            }
-
-            $headers[$header->getName()] = $header->getBodyAsString();
+        if ($email->getSubject() === null) {
+            throw new TransportException('Lettermint requires a subject, but the email has none.');
         }
 
-        $attachments = [];
-        if ($email->getAttachments()) {
-            foreach ($email->getAttachments() as $attachment) {
-                $attachmentHeaders = $attachment->getPreparedHeaders();
-                $filename = $attachmentHeaders->getHeaderParameter('Content-Disposition', 'filename');
-
-                $item = [
-                    'content' => str_replace("\r\n", '', $attachment->bodyToString()),
-                    'filename' => $filename,
-                    'content_type' => $attachmentHeaders->get('Content-Type')->getBody(),
-                ];
-
-                $contentId = $attachmentHeaders->get('Content-ID');
-                if ($contentId) {
-                    $item['content_id'] = trim($contentId->getBodyAsString(), '<>');
-                }
-
-                $attachments[] = $item;
-            }
-        }
+        $attachments = $this->getAttachments($email);
 
         try {
-            $builder = $this->emailEndpoint
-                ->headers($headers)
-                ->from($envelope->getSender()->toString())
-                ->to(...$this->stringifyAddresses($this->getRecipients($email, $envelope)))
-                ->subject($email->getSubject())
-                ->html($email->getHtmlBody())
-                ->text($email->getTextBody())
-                ->cc(...$this->stringifyAddresses($email->getCc()))
-                ->bcc(...$this->stringifyAddresses($email->getBcc()))
-                ->replyTo(...$this->stringifyAddresses($email->getReplyTo()));
+            $result = $this->lettermint->emails->send(
+                $this->buildPayload($email, $envelope, $attachments),
+                idempotencyKey: $this->resolveIdempotencyKey($email),
+            );
+            // get() rather than ->message_id: a response without the field
+            // must not set an empty Message-ID.
+            $messageId = $result->get('message_id');
 
-            if (isset($this->config['route_id']) && $this->config['route_id']) {
-                $builder->route($this->config['route_id']);
-            }
-
-            // Handle idempotency based on configuration
-            $this->handleIdempotency($builder, $email);
-
-            // Handle tags and metadata
-            $this->handleTagsAndMetadata($builder, $email);
-
-            foreach ($attachments as $attachment) {
-                $builder->attach(
-                    $attachment['filename'],
-                    $attachment['content'],
-                    $attachment['content_id'] ?? null,
-                    $attachment['content_type'] ?? null,
-                );
-            }
-
-            $result = $builder->send();
-            $messageId = $this->getMessageId($result);
-
-            if ($messageId !== null && $messageId !== '') {
+            if (is_string($messageId) && $messageId !== '') {
                 // RFC 5322 requires Message-ID format: <local-part@domain>
                 // Format the message_id to comply with RFC 5322 if it doesn't contain @
                 $formattedId = str_contains($messageId, '@')
@@ -128,23 +89,120 @@ class LettermintTransportFactory extends AbstractTransport
 
                 $message->setMessageId($formattedId);
             }
-        } catch (Exception $exception) {
+        } catch (LettermintException $exception) {
+            // ApiException and UnexpectedResponseException carry the HTTP status
+            // as their code; exceptions raised before a response carry 0.
             throw new TransportException(
                 sprintf('Sending email via Lettermint API failed: %s', $exception->getMessage()),
-                is_int($exception->getCode()) ? $exception->getCode() : 0,
+                $exception->getCode(),
                 $exception
             );
         }
     }
 
-    protected function handleIdempotency(EmailEndpoint $builder, Email $email): void
+    /**
+     * Build the request body for the Lettermint send endpoint.
+     *
+     * @param  list<array{filename: string, content: string, content_type: string, content_id?: string}>  $attachments
+     * @return array<string, mixed>
+     */
+    protected function buildPayload(Email $email, Envelope $envelope, array $attachments): array
+    {
+        $payload = [
+            'headers' => $this->getCustomHeaders($email),
+            'from' => $envelope->getSender()->toString(),
+            'to' => array_values($this->stringifyAddresses($this->getRecipients($email, $envelope))),
+            'subject' => $email->getSubject(),
+            'html' => $email->getHtmlBody(),
+            'text' => $email->getTextBody(),
+            'cc' => array_values($this->stringifyAddresses($email->getCc())),
+            'bcc' => array_values($this->stringifyAddresses($email->getBcc())),
+            'reply_to' => array_values($this->stringifyAddresses($email->getReplyTo())),
+        ];
+
+        if (isset($this->config['route_id']) && $this->config['route_id']) {
+            $payload['route'] = (string) $this->config['route_id'];
+        }
+
+        $tag = $this->resolveTag($email);
+        if ($tag !== null) {
+            $payload['tag'] = $tag;
+        }
+
+        $metadata = $this->resolveMetadata($email);
+        if (! empty($metadata)) {
+            $payload['metadata'] = $metadata;
+        }
+
+        if ($attachments !== []) {
+            $payload['attachments'] = $attachments;
+        }
+
+        return $payload;
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function getCustomHeaders(Email $email): array
+    {
+        $headers = [];
+
+        foreach ($email->getHeaders()->all() as $name => $header) {
+            if (in_array($name, self::BYPASS_HEADERS, true)) {
+                continue;
+            }
+
+            $headers[$header->getName()] = $header->getBodyAsString();
+        }
+
+        return $headers;
+    }
+
+    /**
+     * @return list<array{filename: string, content: string, content_type: string, content_id?: string}>
+     *
+     * @throws TransportException When an attachment has no filename, which the Lettermint API requires.
+     */
+    protected function getAttachments(Email $email): array
+    {
+        $attachments = [];
+
+        foreach ($email->getAttachments() as $attachment) {
+            $attachmentHeaders = $attachment->getPreparedHeaders();
+            $filename = $attachmentHeaders->getHeaderParameter('Content-Disposition', 'filename');
+            $contentType = $attachmentHeaders->get('Content-Type')->getBody();
+
+            if ($filename === null || $filename === '') {
+                throw new TransportException(sprintf(
+                    'Lettermint requires every attachment to have a filename, but a "%s" attachment has none. Pass a name when attaching the file.',
+                    $contentType,
+                ));
+            }
+
+            $item = [
+                'filename' => $filename,
+                'content' => str_replace("\r\n", '', $attachment->bodyToString()),
+                'content_type' => $contentType,
+            ];
+
+            $contentId = $attachmentHeaders->get('Content-ID');
+            if ($contentId) {
+                $item['content_id'] = trim($contentId->getBodyAsString(), '<>');
+            }
+
+            $attachments[] = $item;
+        }
+
+        return $attachments;
+    }
+
+    protected function resolveIdempotencyKey(Email $email): ?string
     {
         // Always check for custom idempotency key in headers first - this overrides any config
         $customIdempotencyKey = $email->getHeaders()->get('Idempotency-Key');
         if ($customIdempotencyKey) {
-            $builder->idempotencyKey($customIdempotencyKey->getBodyAsString());
-
-            return;
+            return $customIdempotencyKey->getBodyAsString();
         }
 
         // Check if automatic idempotency is enabled (default: false)
@@ -152,7 +210,7 @@ class LettermintTransportFactory extends AbstractTransport
 
         if ($automaticIdempotency !== true) {
             // Automatic idempotency disabled for this mailer
-            return;
+            return null;
         }
 
         // Get idempotency window in seconds (default: 24 hours to match API retention)
@@ -179,46 +237,41 @@ class LettermintTransportFactory extends AbstractTransport
         }
 
         // Generate SHA256 hash of the content for the idempotency key
-        $idempotencyKey = hash('sha256', implode('|', array_filter($keyParts)));
-        $builder->idempotencyKey($idempotencyKey);
+        return hash('sha256', implode('|', array_filter($keyParts)));
     }
 
-    protected function handleTagsAndMetadata(EmailEndpoint $builder, Email $email): void
+    protected function resolveTag(Email $email): ?string
     {
         $tag = null;
-        $metadata = [];
 
         foreach ($email->getHeaders()->all() as $header) {
             if ($header instanceof TagHeader) {
                 $tag = $header->getValue();
-
-                continue;
             }
+        }
 
-            if ($header instanceof MetadataHeader) {
-                $metadata[$header->getKey()] = $header->getValue();
-
-                continue;
-            }
+        if ($tag !== null) {
+            return $tag;
         }
 
         // Fallback: Check for X-LM-Tag header for backward compatibility
-        if ($tag === null) {
-            $customTagHeader = $email->getHeaders()->get('X-LM-Tag');
-            if ($customTagHeader) {
-                $tag = $customTagHeader->getBodyAsString();
+        return $email->getHeaders()->get('X-LM-Tag')?->getBodyAsString();
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function resolveMetadata(Email $email): array
+    {
+        $metadata = [];
+
+        foreach ($email->getHeaders()->all() as $header) {
+            if ($header instanceof MetadataHeader) {
+                $metadata[$header->getKey()] = $header->getValue();
             }
         }
 
-        // Apply tag if found
-        if ($tag !== null) {
-            $builder->tag($tag);
-        }
-
-        // Apply metadata if any exists
-        if (! empty($metadata)) {
-            $builder->metadata($metadata);
-        }
+        return $metadata;
     }
 
     protected function getRecipients(Email $email, Envelope $envelope): array
@@ -228,29 +281,6 @@ class LettermintTransportFactory extends AbstractTransport
         return array_filter($envelope->getRecipients(), function (Address $address) use ($copies) {
             return in_array($address, $copies, true) === false;
         });
-    }
-
-    protected function getMessageId(mixed $result): ?string
-    {
-        if (is_array($result)) {
-            $messageId = $result['message_id'] ?? null;
-
-            return is_string($messageId) ? $messageId : null;
-        }
-
-        if (is_object($result) && method_exists($result, 'getAttribute')) {
-            $messageId = $result->getAttribute('message_id');
-
-            return is_string($messageId) ? $messageId : null;
-        }
-
-        if (is_object($result)) {
-            $messageId = $result->message_id ?? null;
-
-            return is_string($messageId) ? $messageId : null;
-        }
-
-        return null;
     }
 
     public function __toString(): string

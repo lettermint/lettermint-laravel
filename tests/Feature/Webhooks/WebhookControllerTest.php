@@ -1,19 +1,47 @@
 <?php
 
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Testing\TestResponse;
+use Lettermint\Laravel\Contracts\WebhookEvent;
 use Lettermint\Laravel\Events\LettermintWebhookEvent;
 use Lettermint\Laravel\Events\MessageDelivered;
 use Lettermint\Laravel\Events\MessageHardBounced;
 use Lettermint\Laravel\Events\MessageInbound;
 use Lettermint\Laravel\Events\SuppressionAdded;
 use Lettermint\Laravel\Events\SuppressionRemoved;
+use Lettermint\Laravel\Events\UnknownWebhookEventReceived;
 use Lettermint\Laravel\Events\WebhookTest as WebhookTestEvent;
+use Lettermint\Laravel\Webhooks\WebhookController;
 use Lettermint\Laravel\Webhooks\WebhookEventType;
 
 beforeEach(function () {
     config()->set('lettermint.webhooks.secret', 'test-webhook-secret');
     config()->set('lettermint.webhooks.tolerance', 300);
 });
+
+/**
+ * @param  array<string, mixed>  $payload
+ */
+function postSignedWebhook(array $payload): TestResponse
+{
+    $body = json_encode($payload);
+    $headers = createWebhookSignature($body, 'test-webhook-secret');
+
+    return test()->call(
+        'POST',
+        route('lettermint.webhook'),
+        [],
+        [],
+        [],
+        [
+            'HTTP_X_LETTERMINT_SIGNATURE' => $headers['X-Lettermint-Signature'],
+            'HTTP_X_LETTERMINT_DELIVERY' => $headers['X-Lettermint-Delivery'],
+            'CONTENT_TYPE' => 'application/json',
+        ],
+        $body
+    );
+}
 
 function createWebhookSignature(string $payload, string $secret, ?int $timestamp = null): array
 {
@@ -103,7 +131,7 @@ it('returns 401 for invalid signature', function () {
     );
 
     $response->assertStatus(401);
-    $response->assertJson(['error' => 'Invalid signature']);
+    $response->assertJson(['error' => 'Invalid signature', 'reason' => 'signature_header_malformed']);
 
     Event::assertNotDispatched(LettermintWebhookEvent::class);
 });
@@ -136,9 +164,26 @@ it('returns 401 for missing signature header', function () {
         $payload
     );
 
-    $response->assertStatus(401);
+    $response->assertStatus(401)->assertJson(['reason' => 'signature_header_missing']);
 
     Event::assertNotDispatched(LettermintWebhookEvent::class);
+});
+
+it('returns 401 for a missing delivery header', function () {
+    $received = [];
+    Event::listen(WebhookEvent::class, function (WebhookEvent $event) use (&$received) {
+        $received[] = $event;
+    });
+
+    $body = json_encode(['id' => 'webhook-123', 'event' => 'webhook.test', 'data' => []]);
+    $headers = createWebhookSignature($body, 'test-webhook-secret');
+
+    $this->call('POST', route('lettermint.webhook'), [], [], [], [
+        'HTTP_X_LETTERMINT_SIGNATURE' => $headers['X-Lettermint-Signature'],
+        'CONTENT_TYPE' => 'application/json',
+    ], $body)->assertStatus(401)->assertExactJson(['error' => 'Invalid signature', 'reason' => 'delivery_header_missing']);
+
+    expect($received)->toBe([]);
 });
 
 it('dispatches correct event for message.delivered', function () {
@@ -360,3 +405,126 @@ it('handles signed suppression webhooks and dispatches typed events', function (
     'domain' => ['domain', 'example.com'],
     'extension' => ['extension', 'com'],
 ])->with(['all', 'broadcast']);
+
+it('acknowledges unknown webhook event types and dispatches a generic event with the raw payload', function (array $envelope) {
+    // Record every package event through the real dispatcher.
+    $dispatched = [];
+    Event::listen('Lettermint\\Laravel\\Events\\*', function (string $name, array $data) use (&$dispatched) {
+        $dispatched[] = $data[0];
+    });
+
+    $payload = [
+        'id' => 'webhook-123',
+        ...$envelope,
+        'timestamp' => '2024-01-15T10:30:00Z',
+        'data' => [
+            'message_id' => 'msg-456',
+            'something_new' => ['nested' => true],
+        ],
+    ];
+
+    postSignedWebhook($payload)
+        ->assertOk()
+        ->assertJson(['status' => 'ok']);
+
+    expect($dispatched)->toHaveCount(1);
+    expect($dispatched[0])->toBeInstanceOf(UnknownWebhookEventReceived::class);
+    expect($dispatched[0]->event)->toBe($envelope['event']);
+    expect($dispatched[0]->payload)->toBe($payload);
+})->with([
+    'new event type' => [['event' => 'message.some_future_event']],
+    'new event namespace' => [['event' => 'domain.verified']],
+    'differently cased known type' => [['event' => 'MESSAGE.DELIVERED']],
+]);
+
+it('rejects a signed payload without a string event name', function (array $envelope) {
+    $received = [];
+    Event::listen(WebhookEvent::class, function (WebhookEvent $event) use (&$received) {
+        $received[] = $event;
+    });
+
+    postSignedWebhook([
+        'id' => 'webhook-123',
+        ...$envelope,
+        'timestamp' => '2024-01-15T10:30:00Z',
+        'data' => ['message_id' => 'msg-456'],
+    ])->assertStatus(401)->assertExactJson(['error' => 'Invalid signature', 'reason' => 'payload_invalid']);
+
+    expect($received)->toBe([]);
+})->with([
+    'missing event name' => [[]],
+    'non-string event name' => [['event' => ['message.delivered']]],
+]);
+
+it('does not dispatch the generic unknown event for known event types', function () {
+    Event::fake();
+
+    postSignedWebhook([
+        'id' => 'webhook-123',
+        'event' => 'webhook.test',
+        'timestamp' => '2024-01-15T10:30:00Z',
+        'data' => [
+            'message' => 'Test webhook',
+            'webhook_id' => 'wh-789',
+            'timestamp' => 1705315800,
+        ],
+    ])->assertOk()->assertJson(['status' => 'ok']);
+
+    Event::assertDispatchedTimes(WebhookTestEvent::class, 1);
+    Event::assertNotDispatched(UnknownWebhookEventReceived::class);
+});
+
+it('lets a single listener on the WebhookEvent interface receive typed and unknown webhook events', function () {
+    // Real dispatcher: the listener is matched through the interfaces the events implement.
+    $received = [];
+    Event::listen(WebhookEvent::class, function (WebhookEvent $event) use (&$received) {
+        $received[] = $event;
+    });
+
+    postSignedWebhook([
+        'id' => 'webhook-123',
+        'event' => 'webhook.test',
+        'timestamp' => '2024-01-15T10:30:00Z',
+        'data' => [
+            'message' => 'Test webhook',
+            'webhook_id' => 'wh-789',
+            'timestamp' => 1705315800,
+        ],
+    ])->assertOk();
+
+    postSignedWebhook([
+        'id' => 'webhook-456',
+        'event' => 'message.some_future_event',
+        'timestamp' => '2024-01-15T10:30:00Z',
+        'data' => ['message_id' => 'msg-456'],
+    ])->assertOk();
+
+    expect($received)->toHaveCount(2);
+    expect($received[0])->toBeInstanceOf(WebhookTestEvent::class);
+    expect($received[0]->getEnvelope()->id)->toBe('webhook-123');
+    expect($received[1])->toBeInstanceOf(UnknownWebhookEventReceived::class);
+    expect($received[1]->event)->toBe('message.some_future_event');
+});
+
+it('does not match a listener registered on the abstract base class', function () {
+    // Documents why the README points at the interface: the dispatcher ignores parent classes.
+    $received = [];
+    Event::listen(LettermintWebhookEvent::class, function () use (&$received) {
+        $received[] = true;
+    });
+
+    postSignedWebhook([
+        'id' => 'webhook-123',
+        'event' => 'webhook.test',
+        'timestamp' => '2024-01-15T10:30:00Z',
+        'data' => ['message' => 'Test webhook', 'webhook_id' => 'wh-789', 'timestamp' => 1705315800],
+    ])->assertOk();
+
+    expect($received)->toBeEmpty();
+});
+
+it('refuses to handle a request that did not pass the signature middleware', function () {
+    $request = Request::create('/lettermint/webhook', 'POST', content: '{"event":"webhook.test"}');
+
+    (new WebhookController)($request);
+})->throws(LogicException::class, 'must run behind the Lettermint\Laravel\Webhooks\VerifyWebhookSignature middleware');

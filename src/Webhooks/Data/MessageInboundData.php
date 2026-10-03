@@ -7,11 +7,11 @@ use DateTimeImmutable;
 final readonly class MessageInboundData
 {
     /**
-     * @param  array<InboundEmailAddress>  $to
-     * @param  array<InboundEmailAddress>  $cc
-     * @param  array<EmailHeader>  $headers
-     * @param  array<EmailAttachment>  $attachments
-     * @param  array<SpamSymbol>  $spamSymbols
+     * @param  list<InboundEmailAddress>  $to
+     * @param  list<InboundEmailAddress>  $cc
+     * @param  list<EmailHeader>  $headers
+     * @param  list<EmailAttachment>  $attachments
+     * @param  list<SpamSymbol>  $spamSymbols
      */
     public function __construct(
         public string $route,
@@ -19,58 +19,43 @@ final readonly class MessageInboundData
         public InboundEmailAddress $from,
         public array $to,
         public array $cc,
-        public string $recipient,
+        public ?string $recipient,
         public ?string $subaddress,
         public ?string $replyTo,
-        public string $subject,
-        public DateTimeImmutable $date,
+        public ?string $subject,
+        public ?DateTimeImmutable $date,
         public EmailBody $body,
         public ?string $tag,
         public array $headers,
         public array $attachments,
         public bool $isSpam,
-        public float $spamScore,
+        public ?float $spamScore,
         public array $spamSymbols,
     ) {}
 
     /**
-     * @param  array<string, mixed>  $data
+     * @param  array<array-key, mixed>  $data
      */
     public static function fromArray(array $data): self
     {
         return new self(
-            route: $data['route'],
-            messageId: $data['message_id'],
-            from: InboundEmailAddress::fromArray($data['from']),
-            to: array_map(
-                fn (array $addr) => InboundEmailAddress::fromArray($addr),
-                $data['to'] ?? []
-            ),
-            cc: array_map(
-                fn (array $addr) => InboundEmailAddress::fromArray($addr),
-                $data['cc'] ?? []
-            ),
-            recipient: $data['recipient'],
-            subaddress: $data['subaddress'] ?? null,
-            replyTo: $data['reply_to'] ?? null,
-            subject: $data['subject'],
-            date: new DateTimeImmutable($data['date']),
-            body: EmailBody::fromArray($data['body'] ?? []),
-            tag: $data['tag'] ?? null,
-            headers: array_map(
-                fn (array $header) => EmailHeader::fromArray($header),
-                $data['headers'] ?? []
-            ),
-            attachments: array_map(
-                fn (array $attachment) => EmailAttachment::fromArray($attachment),
-                $data['attachments'] ?? []
-            ),
-            isSpam: $data['is_spam'] ?? false,
-            spamScore: (float) ($data['spam_score'] ?? 0),
-            spamSymbols: array_map(
-                fn (array $symbol) => SpamSymbol::fromArray($symbol),
-                $data['spam_symbols'] ?? []
-            ),
+            route: Field::string($data, 'route') ?? '',
+            messageId: Field::string($data, 'message_id') ?? '',
+            from: InboundEmailAddress::fromArray(Field::array($data, 'from')),
+            to: Field::list($data, 'to', InboundEmailAddress::fromArray(...)),
+            cc: Field::list($data, 'cc', InboundEmailAddress::fromArray(...)),
+            recipient: Field::string($data, 'recipient'),
+            subaddress: Field::string($data, 'subaddress'),
+            replyTo: Field::string($data, 'reply_to'),
+            subject: Field::string($data, 'subject'),
+            date: Field::date($data, 'date'),
+            body: EmailBody::fromArray(Field::array($data, 'body')),
+            tag: Field::string($data, 'tag'),
+            headers: Field::list($data, 'headers', EmailHeader::fromArray(...)),
+            attachments: Field::list($data, 'attachments', EmailAttachment::fromArray(...)),
+            isSpam: Field::bool($data, 'is_spam', false),
+            spamScore: Field::float($data, 'spam_score'),
+            spamSymbols: Field::list($data, 'spam_symbols', SpamSymbol::fromArray(...)),
         );
     }
 }

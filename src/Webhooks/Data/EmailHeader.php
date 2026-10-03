@@ -10,13 +10,13 @@ final readonly class EmailHeader
     ) {}
 
     /**
-     * @param  array{name: string, value: string}  $data
+     * @param  array<array-key, mixed>  $data
      */
     public static function fromArray(array $data): self
     {
         return new self(
-            name: $data['name'],
-            value: $data['value'],
+            name: Field::string($data, 'name') ?? '',
+            value: Field::string($data, 'value') ?? '',
         );
     }
 }

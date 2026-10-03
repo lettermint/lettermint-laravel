@@ -5,7 +5,7 @@ namespace Lettermint\Laravel\Webhooks\Data;
 final readonly class BotDetectionData
 {
     /**
-     * @param  array<string>  $reasonCodes
+     * @param  list<string>  $reasonCodes
      */
     public function __construct(
         public bool $detected,
@@ -18,18 +18,18 @@ final readonly class BotDetectionData
     ) {}
 
     /**
-     * @param  array{detected?: bool, probability?: int|float, classification?: string, proxy_type?: string|null, reason_codes?: array<string>, machine?: bool, counts_for_metrics?: bool}  $data
+     * @param  array<array-key, mixed>  $data
      */
     public static function fromArray(array $data): self
     {
         return new self(
-            detected: $data['detected'] ?? false,
-            probability: (float) ($data['probability'] ?? 0),
-            classification: $data['classification'] ?? 'unknown',
-            proxyType: $data['proxy_type'] ?? null,
-            reasonCodes: $data['reason_codes'] ?? [],
-            machine: $data['machine'] ?? false,
-            countsForMetrics: $data['counts_for_metrics'] ?? true,
+            detected: Field::bool($data, 'detected', false),
+            probability: Field::float($data, 'probability') ?? 0.0,
+            classification: Field::string($data, 'classification') ?? 'unknown',
+            proxyType: Field::string($data, 'proxy_type'),
+            reasonCodes: Field::strings($data, 'reason_codes'),
+            machine: Field::bool($data, 'machine', false),
+            countsForMetrics: Field::bool($data, 'counts_for_metrics', true),
         );
     }
 }

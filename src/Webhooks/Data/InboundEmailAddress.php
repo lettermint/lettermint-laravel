@@ -11,14 +11,14 @@ final readonly class InboundEmailAddress
     ) {}
 
     /**
-     * @param  array{email: string, name?: string|null, subaddress?: string|null}  $data
+     * @param  array<array-key, mixed>  $data
      */
     public static function fromArray(array $data): self
     {
         return new self(
-            email: $data['email'],
-            name: $data['name'] ?? null,
-            subaddress: $data['subaddress'] ?? null,
+            email: Field::string($data, 'email') ?? '',
+            name: Field::string($data, 'name'),
+            subaddress: Field::string($data, 'subaddress'),
         );
     }
 }

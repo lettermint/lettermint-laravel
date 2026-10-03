@@ -2,9 +2,10 @@
 
 namespace Lettermint\Laravel\Events;
 
+use Lettermint\Laravel\Contracts\WebhookEvent;
 use Lettermint\Laravel\Webhooks\Data\WebhookEnvelope;
 
-abstract class LettermintWebhookEvent
+abstract class LettermintWebhookEvent implements WebhookEvent
 {
     abstract public function getEnvelope(): WebhookEnvelope;
 }
