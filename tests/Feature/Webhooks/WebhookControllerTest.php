@@ -1,5 +1,6 @@
 <?php
 
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Testing\TestResponse;
 use Lettermint\Laravel\Contracts\WebhookEvent;
@@ -11,6 +12,7 @@ use Lettermint\Laravel\Events\SuppressionAdded;
 use Lettermint\Laravel\Events\SuppressionRemoved;
 use Lettermint\Laravel\Events\UnknownWebhookEventReceived;
 use Lettermint\Laravel\Events\WebhookTest as WebhookTestEvent;
+use Lettermint\Laravel\Webhooks\WebhookController;
 use Lettermint\Laravel\Webhooks\WebhookEventType;
 
 beforeEach(function () {
@@ -520,3 +522,9 @@ it('does not match a listener registered on the abstract base class', function (
 
     expect($received)->toBeEmpty();
 });
+
+it('refuses to handle a request that did not pass the signature middleware', function () {
+    $request = Request::create('/lettermint/webhook', 'POST', content: '{"event":"webhook.test"}');
+
+    (new WebhookController)($request);
+})->throws(LogicException::class, 'must run behind the Lettermint\Laravel\Webhooks\VerifyWebhookSignature middleware');
