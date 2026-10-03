@@ -9,6 +9,7 @@ use Symfony\Component\Mailer\Header\MetadataHeader;
 use Symfony\Component\Mailer\Header\TagHeader;
 use Symfony\Component\Mime\Address;
 use Symfony\Component\Mime\Email;
+use Symfony\Component\Mime\Header\Headers;
 use Symfony\Component\Mime\Part\DataPart;
 
 /*
@@ -45,6 +46,39 @@ function lettermintPayload(array $overrides = []): array
         'bcc' => [],
         'reply_to' => [],
     ], $overrides);
+}
+
+/**
+ * An email that carries every piece of per-message state: tag, metadata,
+ * a custom idempotency key and an attachment.
+ */
+function lettermintStatefulEmail(): Email
+{
+    $email = lettermintTestEmail()->subject('Stateful email');
+    $email->getHeaders()->addTextHeader('Idempotency-Key', 'first-message-key');
+    $email->getHeaders()->add(new TagHeader('first-tag'));
+    $email->getHeaders()->add(new MetadataHeader('first', 'metadata'));
+    $email->attach('first attachment', 'first.txt', 'text/plain');
+
+    return $email;
+}
+
+/**
+ * An attachment whose MIME headers carry no Content-Disposition, so Symfony
+ * reports its filename as null rather than an empty string.
+ */
+function lettermintAttachmentWithoutDisposition(): DataPart
+{
+    return new class('no disposition', null, 'text/plain') extends DataPart
+    {
+        public function getPreparedHeaders(): Headers
+        {
+            $headers = parent::getPreparedHeaders();
+            $headers->remove('Content-Disposition');
+
+            return $headers;
+        }
+    };
 }
 
 function lettermintTestEmail(): Email
@@ -574,4 +608,84 @@ it('keeps a Message-ID from the Lettermint API response that already contains @'
     $sentMessage = $this->transport->send(lettermintTestEmail());
 
     expect($sentMessage->getMessageId())->toBe('abc@lettermint.co');
+});
+
+it('rejects an attachment without a filename before calling the API', function (Closure $attach) {
+    $email = lettermintTestEmail();
+    $attach($email);
+
+    expect(fn () => $this->transport->send($email))
+        ->toThrow(TransportException::class, 'Lettermint requires every attachment to have a filename');
+
+    expect($this->http->requests)->toBe([]);
+})->with([
+    'empty filename' => [fn (Email $email) => $email->attach('nameless')],
+    'null filename' => [fn (Email $email) => $email->addPart(lettermintAttachmentWithoutDisposition())],
+    'nameless inline part' => [fn (Email $email) => $email->addPart((new DataPart('image-data', null, 'image/png'))->asInline())],
+]);
+
+it('rejects an email without a subject before calling the API', function () {
+    $email = (new Email)
+        ->from('from@example.com')
+        ->to('to@example.com')
+        ->text('This is a Lettermint test mail.');
+
+    expect(fn () => $this->transport->send($email))
+        ->toThrow(TransportException::class, 'Lettermint requires a subject');
+
+    expect($this->http->requests)->toBe([]);
+});
+
+it('does not leak state from a message that failed mid-build into the next message', function (Closure $breakFirstMessage) {
+    // One long-lived transport and endpoint, as in a queue worker.
+    $first = lettermintStatefulEmail();
+    $breakFirstMessage($first);
+
+    try {
+        $this->transport->send($first);
+    } catch (Throwable) {
+        // The first message is expected to fail; only the next one matters here.
+    }
+
+    $this->transport->send(lettermintTestEmail());
+
+    expect($this->http->lastRequest())->toBe([
+        'path' => '/v1/send',
+        'data' => lettermintPayload(),
+        'headers' => [],
+    ]);
+})->with([
+    'attachment with null filename' => [fn (Email $email) => $email->addPart(lettermintAttachmentWithoutDisposition())],
+    'attachment with empty filename' => [fn (Email $email) => $email->attach('nameless')],
+    'missing subject' => [fn (Email $email) => $email->getHeaders()->remove('Subject')],
+]);
+
+it('does not leak state from a message the API rejected into the next message', function () {
+    $this->http->respondWith(new Exception('Validation failed'));
+
+    expect(fn () => $this->transport->send(lettermintStatefulEmail()))
+        ->toThrow(TransportException::class, 'Validation failed');
+
+    $this->transport->send(lettermintTestEmail());
+
+    expect($this->http->requests)->toHaveCount(2);
+    expect($this->http->lastRequest())->toBe([
+        'path' => '/v1/send',
+        'data' => lettermintPayload(),
+        'headers' => [],
+    ]);
+});
+
+it('does not reuse the previous message idempotency key', function () {
+    $transport = new LettermintTransportFactory($this->endpoint, ['idempotency' => true]);
+
+    $transport->send(lettermintStatefulEmail());
+    $transport->send(lettermintTestEmail());
+
+    [$first, $second] = $this->http->requests;
+
+    expect($first['headers'])->toBe(['Idempotency-Key' => 'first-message-key']);
+    expect($second['headers']['Idempotency-Key'])
+        ->toBeString()
+        ->not->toBe('first-message-key');
 });
