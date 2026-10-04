@@ -2,6 +2,15 @@
 
 All notable changes to `lettermint-laravel` will be documented in this file.
 
+## 3.0.0 - 2026-10-04
+
+### What's Changed
+
+* test(webhooks): verify signed dispatch for all current events by @bjarn in https://github.com/lettermint/lettermint-laravel/pull/44
+* feat!: Lettermint Laravel 3.0 by @bjarn in https://github.com/lettermint/lettermint-laravel/pull/45
+
+**Full Changelog**: https://github.com/lettermint/lettermint-laravel/compare/2.3.0...3.0.0
+
 ## 2.3.0 - 2026-10-01
 
 ### What's Changed
