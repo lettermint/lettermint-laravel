@@ -12,15 +12,17 @@ final readonly class AutoReplyData
     ) {}
 
     /**
-     * @param  array<string, mixed>  $data
+     * @param  array<array-key, mixed>  $data
      */
     public static function fromArray(array $data): self
     {
+        $body = Field::object($data, 'body');
+
         return new self(
-            sender: $data['sender'] ?? null,
-            recipient: $data['recipient'] ?? null,
-            subject: $data['subject'] ?? null,
-            body: isset($data['body']) ? EmailBody::fromArray($data['body']) : null,
+            sender: Field::string($data, 'sender'),
+            recipient: Field::string($data, 'recipient'),
+            subject: Field::string($data, 'subject'),
+            body: $body === null ? null : EmailBody::fromArray($body),
         );
     }
 }

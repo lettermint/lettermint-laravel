@@ -24,6 +24,7 @@ use Lettermint\Laravel\Events\MessageUnsubscribed;
 use Lettermint\Laravel\Events\SuppressionAdded;
 use Lettermint\Laravel\Events\SuppressionRemoved;
 use Lettermint\Laravel\Events\WebhookTest;
+use Lettermint\Laravel\Webhooks\Data\Field;
 use Lettermint\Laravel\Webhooks\Data\MessageAutoRepliedData;
 use Lettermint\Laravel\Webhooks\Data\MessageCanceledData;
 use Lettermint\Laravel\Webhooks\Data\MessageClickedData;
@@ -90,35 +91,43 @@ enum WebhookEventType: string
     /**
      * Create the appropriate event instance from raw webhook payload.
      *
+     * Missing, extra or mistyped fields do not throw: the typed data reads
+     * them as null or empty, and the event keeps the complete payload.
+     *
      * @param  array<string, mixed>  $rawPayload
      */
     public function toEvent(array $rawPayload): LettermintWebhookEvent
     {
-        $envelope = WebhookEnvelope::fromArray($rawPayload);
-        $data = $rawPayload['data'] ?? [];
+        $envelope = new WebhookEnvelope(
+            id: Field::string($rawPayload, 'id') ?? '',
+            event: $this,
+            timestamp: Field::date($rawPayload, 'timestamp'),
+        );
+        $data = Field::array($rawPayload, 'data');
+        $payload = $rawPayload;
 
         return match ($this) {
-            self::MessageScheduled => new MessageScheduled($envelope, MessageScheduledData::fromArray($data)),
-            self::MessageRescheduled => new MessageRescheduled($envelope, MessageRescheduledData::fromArray($data)),
-            self::MessageCanceled => new MessageCanceled($envelope, MessageCanceledData::fromArray($data)),
-            self::MessageReleased => new MessageReleased($envelope, MessageReleasedData::fromArray($data)),
-            self::MessageAutoReplied => new MessageAutoReplied($envelope, MessageAutoRepliedData::fromArray($data)),
-            self::MessageCreated => new MessageCreated($envelope, MessageCreatedData::fromArray($data)),
-            self::MessageSent => new MessageSent($envelope, MessageSentData::fromArray($data)),
-            self::MessageDelivered => new MessageDelivered($envelope, MessageDeliveredData::fromArray($data)),
-            self::MessageHardBounced => new MessageHardBounced($envelope, MessageHardBouncedData::fromArray($data)),
-            self::MessageSoftBounced => new MessageSoftBounced($envelope, MessageSoftBouncedData::fromArray($data)),
-            self::MessageSpamComplaint => new MessageSpamComplaint($envelope, MessageSpamComplaintData::fromArray($data)),
-            self::MessageFailed => new MessageFailed($envelope, MessageFailedData::fromArray($data)),
-            self::MessageSuppressed => new MessageSuppressed($envelope, MessageSuppressedData::fromArray($data)),
-            self::MessagePolicyRejected => new MessagePolicyRejected($envelope, MessagePolicyRejectedData::fromArray($data)),
-            self::MessageUnsubscribed => new MessageUnsubscribed($envelope, MessageUnsubscribedData::fromArray($data)),
-            self::MessageOpened => new MessageOpened($envelope, MessageOpenedData::fromArray($data)),
-            self::MessageClicked => new MessageClicked($envelope, MessageClickedData::fromArray($data)),
-            self::MessageInbound => new MessageInbound($envelope, MessageInboundData::fromArray($data)),
-            self::SuppressionAdded => new SuppressionAdded($envelope, SuppressionAddedData::fromArray($data)),
-            self::SuppressionRemoved => new SuppressionRemoved($envelope, SuppressionRemovedData::fromArray($data)),
-            self::WebhookTest => new WebhookTest($envelope, WebhookTestData::fromArray($data)),
+            self::MessageScheduled => new MessageScheduled($envelope, MessageScheduledData::fromArray($data), $payload),
+            self::MessageRescheduled => new MessageRescheduled($envelope, MessageRescheduledData::fromArray($data), $payload),
+            self::MessageCanceled => new MessageCanceled($envelope, MessageCanceledData::fromArray($data), $payload),
+            self::MessageReleased => new MessageReleased($envelope, MessageReleasedData::fromArray($data), $payload),
+            self::MessageAutoReplied => new MessageAutoReplied($envelope, MessageAutoRepliedData::fromArray($data), $payload),
+            self::MessageCreated => new MessageCreated($envelope, MessageCreatedData::fromArray($data), $payload),
+            self::MessageSent => new MessageSent($envelope, MessageSentData::fromArray($data), $payload),
+            self::MessageDelivered => new MessageDelivered($envelope, MessageDeliveredData::fromArray($data), $payload),
+            self::MessageHardBounced => new MessageHardBounced($envelope, MessageHardBouncedData::fromArray($data), $payload),
+            self::MessageSoftBounced => new MessageSoftBounced($envelope, MessageSoftBouncedData::fromArray($data), $payload),
+            self::MessageSpamComplaint => new MessageSpamComplaint($envelope, MessageSpamComplaintData::fromArray($data), $payload),
+            self::MessageFailed => new MessageFailed($envelope, MessageFailedData::fromArray($data), $payload),
+            self::MessageSuppressed => new MessageSuppressed($envelope, MessageSuppressedData::fromArray($data), $payload),
+            self::MessagePolicyRejected => new MessagePolicyRejected($envelope, MessagePolicyRejectedData::fromArray($data), $payload),
+            self::MessageUnsubscribed => new MessageUnsubscribed($envelope, MessageUnsubscribedData::fromArray($data), $payload),
+            self::MessageOpened => new MessageOpened($envelope, MessageOpenedData::fromArray($data), $payload),
+            self::MessageClicked => new MessageClicked($envelope, MessageClickedData::fromArray($data), $payload),
+            self::MessageInbound => new MessageInbound($envelope, MessageInboundData::fromArray($data), $payload),
+            self::SuppressionAdded => new SuppressionAdded($envelope, SuppressionAddedData::fromArray($data), $payload),
+            self::SuppressionRemoved => new SuppressionRemoved($envelope, SuppressionRemovedData::fromArray($data), $payload),
+            self::WebhookTest => new WebhookTest($envelope, WebhookTestData::fromArray($data), $payload),
         };
     }
 }

@@ -32,3 +32,7 @@ testbench.yaml
 /coverage
 CLAUDE.md
 .DS_Store
+
+# Local development against an unreleased lettermint/lettermint-php
+composer.local.json
+composer.local.lock

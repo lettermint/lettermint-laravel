@@ -1,8 +1,10 @@
 <?php
 
 use Illuminate\Http\Request;
+use Lettermint\Exceptions\LettermintConfigException;
 use Lettermint\Laravel\Webhooks\Exceptions\WebhookSecretNotFoundException;
 use Lettermint\Laravel\Webhooks\VerifyWebhookSignature;
+use Lettermint\WebhookPayload;
 
 function createSignedRequest(string $payload, string $secret, ?int $timestamp = null): Request
 {
@@ -44,13 +46,59 @@ it('passes valid webhook through middleware', function () {
     $response = $middleware->handle($request, fn ($req) => response()->json(['passed' => true]));
 
     expect($response->getStatusCode())->toBe(200);
-    expect($request->attributes->get('lettermint_webhook_payload'))->toBe([
-        'id' => 'test-123',
-        'event' => 'message.sent',
-        'timestamp' => '2024-01-01T00:00:00Z',
-        'data' => [],
-    ]);
+
+    $verified = VerifyWebhookSignature::payload($request);
+
+    expect($verified)->toBeInstanceOf(WebhookPayload::class)
+        ->and($request->attributes->get(VerifyWebhookSignature::PAYLOAD_ATTRIBUTE))->toBe($verified)
+        ->and($verified->event)->toBe('message.sent')
+        ->and($verified->id)->toBe('test-123')
+        ->and($verified['event'])->toBe('message.sent')
+        ->and($verified->toArray())->toBe([
+            'id' => 'test-123',
+            'event' => 'message.sent',
+            'timestamp' => '2024-01-01T00:00:00Z',
+            'data' => [],
+        ]);
 });
+
+it('rejects deliveries with the reason the SDK reports', function (Closure $tamper, string $reason) {
+    config()->set('lettermint.webhooks.secret', 'test-secret');
+
+    $payload = json_encode(['id' => 'test-123', 'event' => 'message.sent', 'data' => []]);
+    $request = createSignedRequest($payload, 'test-secret');
+    $request = $tamper($request, $payload);
+
+    $response = (new VerifyWebhookSignature)->handle($request, fn () => response()->json(['passed' => true]));
+
+    expect($response->getStatusCode())->toBe(401)
+        ->and(json_decode($response->getContent(), true))->toBe(['error' => 'Invalid signature', 'reason' => $reason])
+        ->and(VerifyWebhookSignature::payload($request))->toBeNull();
+})->with([
+    'missing delivery header' => [function (Request $request) {
+        $request->headers->remove('X-Lettermint-Delivery');
+
+        return $request;
+    }, 'delivery_header_missing'],
+    'delivery header differs from the signed timestamp' => [function (Request $request) {
+        $request->headers->set('X-Lettermint-Delivery', (string) (time() - 1));
+
+        return $request;
+    }, 'delivery_timestamp_mismatch'],
+    'tampered body' => [fn (Request $request, string $payload) => Request::create(
+        '/lettermint/webhook', 'POST', [], [], [], $request->server->all(), str_replace('message.sent', 'message.failed', $payload),
+    ), 'signature_mismatch'],
+    'wrong secret' => [fn (Request $request, string $payload) => createSignedRequest($payload, 'other-secret'), 'signature_mismatch'],
+]);
+
+it('rejects a negative tolerance as a configuration error', function () {
+    config()->set('lettermint.webhooks.secret', 'test-secret');
+    config()->set('lettermint.webhooks.tolerance', -1);
+
+    $request = createSignedRequest(json_encode(['event' => 'message.sent']), 'test-secret');
+
+    (new VerifyWebhookSignature)->handle($request, fn () => response()->json(['passed' => true]));
+})->throws(LettermintConfigException::class);
 
 it('rejects invalid signature', function () {
     config()->set('lettermint.webhooks.secret', 'test-secret');

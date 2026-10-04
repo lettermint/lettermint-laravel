@@ -21,9 +21,18 @@ jobs:
       fail-fast: true
       matrix:
         os: [ubuntu-latest]
-        php: [8.4, 8.3]
+        php: [8.5, 8.4, 8.3, 8.2]
         laravel: [13.*, 12.*, 11.*, 10.*]
         stability: [prefer-lowest, prefer-stable]
+        exclude:
+          # Laravel 13 requires PHP 8.3 or later.
+          - laravel: 13.*
+            php: 8.2
+          # Laravel 10 and 11 do not support PHP 8.5.
+          - laravel: 11.*
+            php: 8.5
+          - laravel: 10.*
+            php: 8.5
         include:
           - laravel: 13.*
             testbench: 11.*

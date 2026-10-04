@@ -10,13 +10,13 @@ final readonly class EmailBody
     ) {}
 
     /**
-     * @param  array{text?: string|null, html?: string|null}  $data
+     * @param  array<array-key, mixed>  $data
      */
     public static function fromArray(array $data): self
     {
         return new self(
-            text: $data['text'] ?? null,
-            html: $data['html'] ?? null,
+            text: Field::string($data, 'text'),
+            html: Field::string($data, 'html'),
         );
     }
 }

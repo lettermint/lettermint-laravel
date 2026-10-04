@@ -2,18 +2,24 @@
 
 namespace Lettermint\Laravel;
 
+use GuzzleHttp\ClientInterface;
+use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\Facades\Mail;
-use Lettermint\Client\ApiClient;
-use Lettermint\Endpoints\EmailEndpoint;
 use Lettermint\Laravel\Exceptions\ApiTokenNotFoundException;
-use Lettermint\Laravel\Exceptions\TeamApiTokenNotFoundException;
 use Lettermint\Laravel\Transport\LettermintTransportFactory;
-use Lettermint\Lettermint as LettermintSdk;
+use Lettermint\Lettermint;
 use Spatie\LaravelPackageTools\Package;
 use Spatie\LaravelPackageTools\PackageServiceProvider;
 
 class LettermintServiceProvider extends PackageServiceProvider
 {
+    /**
+     * Container key for an optional Guzzle client used by the Lettermint
+     * client, for example one with a proxy. Bind a GuzzleHttp\ClientInterface
+     * under this key before the client is first resolved.
+     */
+    public const HTTP_CLIENT = 'lettermint.http_client';
+
     public function configurePackage(Package $package): void
     {
         $package
@@ -36,7 +42,13 @@ class LettermintServiceProvider extends PackageServiceProvider
 
         $app = $this->app;
         Mail::extend('lettermint', function (array $config = []) use ($app) {
-            return new LettermintTransportFactory($app['lettermint'], $config);
+            // Fail when the mailer is created, not on the first send, so a
+            // missing project token surfaces as a configuration error.
+            if (self::sendingToken() === null) {
+                throw ApiTokenNotFoundException::create();
+            }
+
+            return new LettermintTransportFactory($app->make(Lettermint::class), $config);
         });
     }
 
@@ -44,50 +56,65 @@ class LettermintServiceProvider extends PackageServiceProvider
     {
         parent::register();
 
-        $this->registerLettermintEmailEndpoint();
-        $this->registerLettermintApiClient();
-    }
+        // The client holds no message state, so one instance is shared by the
+        // mail transport, the facade and the application, also in queue
+        // workers and Octane. It refuses serialization because it holds the
+        // tokens: resolve it where it is used, never store it on a queued job.
+        $this->app->singleton(Lettermint::class, static function (Application $app): Lettermint {
+            $sendingToken = self::sendingToken();
+            $teamToken = self::teamToken();
 
-    protected function registerLettermintEmailEndpoint(): void
-    {
-        $this->app->bind(EmailEndpoint::class, static function (): EmailEndpoint {
-            // A user can configure the project token in the config file or in the services config file.
-            $projectToken = config('lettermint.token') ?? config('services.lettermint.token');
-
-            if (! is_string($projectToken)) {
-                throw ApiTokenNotFoundException::create();
+            if ($sendingToken === null && $teamToken === null) {
+                throw ApiTokenNotFoundException::noTokens();
             }
 
-            return LettermintSdk::email($projectToken, timeout: self::requestTimeout());
+            $httpClient = $app->bound(self::HTTP_CLIENT) ? $app->make(self::HTTP_CLIENT) : null;
+
+            return new Lettermint(
+                sendingToken: $sendingToken,
+                teamToken: $teamToken,
+                timeout: (float) config('lettermint.timeout', 15),
+                httpClient: $httpClient instanceof ClientInterface ? $httpClient : null,
+            );
         });
-        $this->app->alias(EmailEndpoint::class, 'lettermint');
+        $this->app->alias(Lettermint::class, 'lettermint');
     }
 
-    protected function registerLettermintApiClient(): void
+    /**
+     * The project sending token from config/lettermint.php, or else from
+     * config/services.php. Empty values count as not configured.
+     */
+    public static function sendingToken(): ?string
     {
-        $this->app->bind(ApiClient::class, static function (): ApiClient {
-            $apiToken = config('lettermint.api_token') ?? config('services.lettermint.api_token');
+        return self::firstToken(config('lettermint.token'), config('services.lettermint.token'));
+    }
 
-            if (! is_string($apiToken)) {
-                throw TeamApiTokenNotFoundException::create();
+    /**
+     * The team API token from config/lettermint.php, or else from
+     * config/services.php. Empty values count as not configured.
+     */
+    public static function teamToken(): ?string
+    {
+        return self::firstToken(config('lettermint.api_token'), config('services.lettermint.api_token'));
+    }
+
+    private static function firstToken(mixed ...$candidates): ?string
+    {
+        foreach ($candidates as $candidate) {
+            if (is_string($candidate) && trim($candidate) !== '') {
+                return trim($candidate);
             }
+        }
 
-            return LettermintSdk::api($apiToken, timeout: self::requestTimeout());
-        });
-        $this->app->alias(ApiClient::class, 'lettermint.api');
-    }
-
-    private static function requestTimeout(): int
-    {
-        return (int) config('lettermint.timeout', 15);
+        return null;
     }
 
     public function provides(): array
     {
         return [
             ...parent::provides(),
-            ApiClient::class,
-            EmailEndpoint::class,
+            Lettermint::class,
+            'lettermint',
         ];
     }
 }
