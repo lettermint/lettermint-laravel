@@ -6,6 +6,7 @@ final readonly class MessageReleasedData
 {
     /**
      * @param  array<array-key, mixed>  $metadata
+     * @param  list<EmailHeader>  $headers
      */
     public function __construct(
         public string $messageId,
@@ -15,6 +16,7 @@ final readonly class MessageReleasedData
         public ?string $scheduledAt,
         public ?string $releasedAt,
         public ?int $releaseDelaySeconds,
+        public array $headers = [],
     ) {}
 
     /**
@@ -30,6 +32,7 @@ final readonly class MessageReleasedData
             scheduledAt: Field::string($data, 'scheduled_at'),
             releasedAt: Field::string($data, 'released_at'),
             releaseDelaySeconds: Field::int($data, 'release_delay_seconds'),
+            headers: Field::list($data, 'headers', EmailHeader::fromArray(...)),
         );
     }
 }

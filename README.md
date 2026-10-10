@@ -430,20 +430,22 @@ $event->payload['data']['tags']; // fields the typed data does not map
 
 | Event | Data properties |
 | --- | --- |
-| `MessageCreated` | `messageId`, `from`, `to`, `cc`, `bcc`, `replyTo`, `subject`, `metadata`, `tag` |
-| `MessageSent`, `MessageSpamComplaint` | `messageId`, `recipient`, `metadata`, `tag` |
-| `MessageDelivered`, `MessageHardBounced`, `MessageSoftBounced` | `messageId`, `recipient`, `response`, `metadata`, `tag` |
-| `MessageFailed` | `messageId`, `recipient`, `reason`, `response`, `metadata`, `tag` |
-| `MessageSuppressed` | `messageId`, `recipient`, `reason`, `metadata`, `tag` |
-| `MessagePolicyRejected` | `messageId`, `subject`, `reason`, `score`, `spamSymbols`, `metadata`, `tag` |
-| `MessageUnsubscribed` | `messageId`, `recipient`, `unsubscribedAt`, `metadata`, `tag` |
-| `MessageOpened` | `messageId`, `subject`, `recipient`, `openedAt`, `firstOpen`, `deviceType`, `clientType`, `clientName`, `userAgent`, `bot`, `metadata`, `tag` |
-| `MessageClicked` | `messageId`, `subject`, `recipient`, `clickedAt`, `destinationUrl`, `linkIndex`, `anchorText`, `firstClick`, `deviceType`, `clientType`, `clientName`, `userAgent`, `bot`, `metadata`, `tag` |
+| `MessageCreated` | `messageId`, `from`, `to`, `cc`, `bcc`, `replyTo`, `subject`, `metadata`, `tag`, `headers` |
+| `MessageSent`, `MessageSpamComplaint` | `messageId`, `recipient`, `metadata`, `tag`, `headers` |
+| `MessageDelivered`, `MessageHardBounced`, `MessageSoftBounced` | `messageId`, `recipient`, `response`, `metadata`, `tag`, `headers` |
+| `MessageFailed` | `messageId`, `recipient`, `reason`, `response`, `metadata`, `tag`, `headers` |
+| `MessageSuppressed` | `messageId`, `recipient`, `reason`, `metadata`, `tag`, `headers` |
+| `MessagePolicyRejected` | `messageId`, `subject`, `reason`, `score`, `spamSymbols`, `metadata`, `tag`, `headers` |
+| `MessageUnsubscribed` | `messageId`, `recipient`, `unsubscribedAt`, `metadata`, `tag`, `headers` |
+| `MessageOpened` | `messageId`, `subject`, `recipient`, `openedAt`, `firstOpen`, `deviceType`, `clientType`, `clientName`, `userAgent`, `bot`, `metadata`, `tag`, `headers` |
+| `MessageClicked` | `messageId`, `subject`, `recipient`, `clickedAt`, `destinationUrl`, `linkIndex`, `anchorText`, `firstClick`, `deviceType`, `clientType`, `clientName`, `userAgent`, `bot`, `metadata`, `tag`, `headers` |
 | `MessageInbound` | `route`, `messageId`, `from`, `to`, `cc`, `recipient`, `subaddress`, `replyTo`, `subject`, `date`, `body`, `tag`, `headers`, `attachments`, `isSpam`, `spamScore`, `spamSymbols` |
-| `MessageAutoReplied` | `messageId`, `subject`, `autoReply`, `metadata`, `tag` |
-| `MessageScheduled`, `MessageRescheduled`, `MessageCanceled`, `MessageReleased` | `messageId`, `subject`, the schedule times, `metadata`, `tag` |
+| `MessageAutoReplied` | `messageId`, `subject`, `autoReply`, `metadata`, `tag`, `headers` |
+| `MessageScheduled`, `MessageRescheduled`, `MessageCanceled`, `MessageReleased` | `messageId`, `subject`, the schedule times, `metadata`, `tag`, `headers` |
 | `SuppressionAdded`, `SuppressionRemoved` | `suppressionId`, `type`, `value`, `reason`, `appliesTo` |
 | `WebhookTest` | `message`, `webhookId`, `timestamp` |
+
+`headers` is a list of `EmailHeader` objects (`name`, `value`) holding the headers Lettermint accepted for an outbound message; repeated headers appear as separate entries. It is an empty list for messages accepted before Lettermint stored headers, and when a payload has no `headers` field.
 
 The typed data tolerates changes to the payload: a field Lettermint omits, or sends with an unexpected type, reads as `null` (or an empty list) instead of failing the delivery, and fields the package does not know are ignored but stay available in `$event->payload`. Fields that Lettermint may omit or send as `null` are nullable; identifiers that every delivery carries, such as `messageId`, are strings.
 

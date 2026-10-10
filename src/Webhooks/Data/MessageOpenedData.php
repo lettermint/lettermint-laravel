@@ -8,6 +8,7 @@ final readonly class MessageOpenedData
 {
     /**
      * @param  array<array-key, mixed>  $metadata
+     * @param  list<EmailHeader>  $headers
      */
     public function __construct(
         public string $messageId,
@@ -22,6 +23,7 @@ final readonly class MessageOpenedData
         public ?string $clientName,
         public ?string $userAgent,
         public ?BotDetectionData $bot,
+        public array $headers = [],
     ) {}
 
     /**
@@ -44,6 +46,7 @@ final readonly class MessageOpenedData
             clientName: Field::string($data, 'client_name'),
             userAgent: Field::string($data, 'user_agent'),
             bot: $bot === null ? null : BotDetectionData::fromArray($bot),
+            headers: Field::list($data, 'headers', EmailHeader::fromArray(...)),
         );
     }
 }

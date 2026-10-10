@@ -10,6 +10,7 @@ final readonly class MessageCreatedData
      * @param  list<string>  $bcc
      * @param  list<string>  $replyTo
      * @param  array<array-key, mixed>  $metadata
+     * @param  list<EmailHeader>  $headers
      */
     public function __construct(
         public string $messageId,
@@ -21,6 +22,7 @@ final readonly class MessageCreatedData
         public ?string $subject,
         public array $metadata,
         public ?string $tag,
+        public array $headers = [],
     ) {}
 
     /**
@@ -38,6 +40,7 @@ final readonly class MessageCreatedData
             subject: Field::string($data, 'subject'),
             metadata: Field::array($data, 'metadata'),
             tag: Field::string($data, 'tag'),
+            headers: Field::list($data, 'headers', EmailHeader::fromArray(...)),
         );
     }
 }
