@@ -6,6 +6,7 @@ final readonly class MessageSoftBouncedData
 {
     /**
      * @param  array<array-key, mixed>  $metadata
+     * @param  list<EmailHeader>  $headers
      */
     public function __construct(
         public string $messageId,
@@ -13,6 +14,7 @@ final readonly class MessageSoftBouncedData
         public ServerResponse $response,
         public array $metadata,
         public ?string $tag,
+        public array $headers = [],
     ) {}
 
     /**
@@ -26,6 +28,7 @@ final readonly class MessageSoftBouncedData
             response: ServerResponse::fromArray(Field::array($data, 'response')),
             metadata: Field::array($data, 'metadata'),
             tag: Field::string($data, 'tag'),
+            headers: Field::list($data, 'headers', EmailHeader::fromArray(...)),
         );
     }
 }
