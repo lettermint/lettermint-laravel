@@ -2,6 +2,14 @@
 
 All notable changes to `lettermint-laravel` will be documented in this file.
 
+## 3.1.0 - 2026-10-11
+
+### What's Changed
+
+* feat(webhooks): expose message headers on outbound message events by @bjarn in https://github.com/lettermint/lettermint-laravel/pull/46
+
+**Full Changelog**: https://github.com/lettermint/lettermint-laravel/compare/3.0.0...3.1.0
+
 ## 3.0.0 - 2026-10-04
 
 ### What's Changed
