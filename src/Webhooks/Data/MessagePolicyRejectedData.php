@@ -7,6 +7,7 @@ final readonly class MessagePolicyRejectedData
     /**
      * @param  list<SpamSymbol>  $spamSymbols
      * @param  array<array-key, mixed>  $metadata
+     * @param  list<EmailHeader>  $headers
      */
     public function __construct(
         public string $messageId,
@@ -16,6 +17,7 @@ final readonly class MessagePolicyRejectedData
         public array $spamSymbols,
         public array $metadata,
         public ?string $tag,
+        public array $headers = [],
     ) {}
 
     /**
@@ -31,6 +33,7 @@ final readonly class MessagePolicyRejectedData
             spamSymbols: Field::list($data, 'spam_symbols', SpamSymbol::fromArray(...)),
             metadata: Field::array($data, 'metadata'),
             tag: Field::string($data, 'tag'),
+            headers: Field::list($data, 'headers', EmailHeader::fromArray(...)),
         );
     }
 }

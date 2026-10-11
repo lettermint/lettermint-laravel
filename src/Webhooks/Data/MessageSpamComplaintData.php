@@ -6,12 +6,14 @@ final readonly class MessageSpamComplaintData
 {
     /**
      * @param  array<array-key, mixed>  $metadata
+     * @param  list<EmailHeader>  $headers
      */
     public function __construct(
         public string $messageId,
         public string $recipient,
         public array $metadata,
         public ?string $tag,
+        public array $headers = [],
     ) {}
 
     /**
@@ -24,6 +26,7 @@ final readonly class MessageSpamComplaintData
             recipient: Field::string($data, 'recipient') ?? '',
             metadata: Field::array($data, 'metadata'),
             tag: Field::string($data, 'tag'),
+            headers: Field::list($data, 'headers', EmailHeader::fromArray(...)),
         );
     }
 }

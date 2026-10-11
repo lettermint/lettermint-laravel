@@ -6,6 +6,7 @@ final readonly class MessageRescheduledData
 {
     /**
      * @param  array<array-key, mixed>  $metadata
+     * @param  list<EmailHeader>  $headers
      */
     public function __construct(
         public string $messageId,
@@ -14,6 +15,7 @@ final readonly class MessageRescheduledData
         public ?string $tag,
         public ?string $previousScheduledAt,
         public ?string $scheduledAt,
+        public array $headers = [],
     ) {}
 
     /**
@@ -28,6 +30,7 @@ final readonly class MessageRescheduledData
             tag: Field::string($data, 'tag'),
             previousScheduledAt: Field::string($data, 'previous_scheduled_at'),
             scheduledAt: Field::string($data, 'scheduled_at'),
+            headers: Field::list($data, 'headers', EmailHeader::fromArray(...)),
         );
     }
 }

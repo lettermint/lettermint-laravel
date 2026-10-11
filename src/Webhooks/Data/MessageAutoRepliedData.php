@@ -6,6 +6,7 @@ final readonly class MessageAutoRepliedData
 {
     /**
      * @param  array<array-key, mixed>  $metadata
+     * @param  list<EmailHeader>  $headers
      */
     public function __construct(
         public string $messageId,
@@ -13,6 +14,7 @@ final readonly class MessageAutoRepliedData
         public array $metadata,
         public ?string $tag,
         public AutoReplyData $autoReply,
+        public array $headers = [],
     ) {}
 
     /**
@@ -26,6 +28,7 @@ final readonly class MessageAutoRepliedData
             metadata: Field::array($data, 'metadata'),
             tag: Field::string($data, 'tag'),
             autoReply: AutoReplyData::fromArray(Field::array($data, 'auto_reply')),
+            headers: Field::list($data, 'headers', EmailHeader::fromArray(...)),
         );
     }
 }
