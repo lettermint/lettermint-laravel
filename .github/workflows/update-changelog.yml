@@ -30,7 +30,7 @@ jobs:
           token: ${{ steps.release-bot.outputs.token }}
 
       - name: Update changelog from release notes
-        uses: stefanzweifel/changelog-updater-action@a938690fad7edf25368f37e43a1ed1b34303eb36 # v1
+        uses: stefanzweifel/changelog-updater-action@dd32e02e4c96d6e729bae24bdbcbb92452dbc9ea # v1
         with:
           latest-version: ${{ github.event.release.tag_name }}
           release-notes: ${{ github.event.release.body }}
