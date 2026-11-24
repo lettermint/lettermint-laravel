@@ -83,7 +83,12 @@ jobs:
         run: |
           composer require "pestphp/pest:^4.0" "pestphp/pest-plugin-laravel:^4.0" "pestphp/pest-plugin-arch:^4.0" --dev --no-interaction --no-update
 
+      # Laravel 10 and 11 are out of security support, and Composer refuses to install
+      # releases with open advisories. Allow them here to keep testing the versions
+      # composer.json still supports.
       - name: Install all dependencies
+        env:
+          COMPOSER_NO_SECURITY_BLOCKING: ${{ (startsWith(matrix.laravel, '10.') || startsWith(matrix.laravel, '11.')) && '1' || '' }}
         run: |
           composer update --${{ matrix.stability }} --prefer-dist --no-interaction
 

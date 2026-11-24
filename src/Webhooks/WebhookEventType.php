@@ -2,6 +2,7 @@
 
 namespace Lettermint\Laravel\Webhooks;
 
+use Lettermint\Laravel\Events\InboundRejected;
 use Lettermint\Laravel\Events\LettermintWebhookEvent;
 use Lettermint\Laravel\Events\MessageAutoReplied;
 use Lettermint\Laravel\Events\MessageCanceled;
@@ -25,6 +26,7 @@ use Lettermint\Laravel\Events\SuppressionAdded;
 use Lettermint\Laravel\Events\SuppressionRemoved;
 use Lettermint\Laravel\Events\WebhookTest;
 use Lettermint\Laravel\Webhooks\Data\Field;
+use Lettermint\Laravel\Webhooks\Data\InboundRejectedData;
 use Lettermint\Laravel\Webhooks\Data\MessageAutoRepliedData;
 use Lettermint\Laravel\Webhooks\Data\MessageCanceledData;
 use Lettermint\Laravel\Webhooks\Data\MessageClickedData;
@@ -68,6 +70,7 @@ enum WebhookEventType: string
     case MessageOpened = 'message.opened';
     case MessageClicked = 'message.clicked';
     case MessageInbound = 'message.inbound';
+    case InboundRejected = 'inbound.rejected';
     case SuppressionAdded = 'suppression.added';
     case SuppressionRemoved = 'suppression.removed';
     case WebhookTest = 'webhook.test';
@@ -125,6 +128,7 @@ enum WebhookEventType: string
             self::MessageOpened => new MessageOpened($envelope, MessageOpenedData::fromArray($data), $payload),
             self::MessageClicked => new MessageClicked($envelope, MessageClickedData::fromArray($data), $payload),
             self::MessageInbound => new MessageInbound($envelope, MessageInboundData::fromArray($data), $payload),
+            self::InboundRejected => new InboundRejected($envelope, InboundRejectedData::fromArray($data), $payload),
             self::SuppressionAdded => new SuppressionAdded($envelope, SuppressionAddedData::fromArray($data), $payload),
             self::SuppressionRemoved => new SuppressionRemoved($envelope, SuppressionRemovedData::fromArray($data), $payload),
             self::WebhookTest => new WebhookTest($envelope, WebhookTestData::fromArray($data), $payload),

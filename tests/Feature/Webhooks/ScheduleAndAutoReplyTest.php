@@ -47,6 +47,6 @@ it('dispatches each current lifecycle event after signature verification', funct
     ['message.auto_replied', MessageAutoReplied::class, ['auto_reply' => ['sender' => null, 'recipient' => null, 'subject' => null]]],
 ]);
 
-it('declares all 21 current webhook event names', function () {
-    expect(array_column(WebhookEventType::cases(), 'value'))->toHaveCount(21);
+it('declares all 22 current webhook event names', function () {
+    expect(array_column(WebhookEventType::cases(), 'value'))->toHaveCount(22);
 });
