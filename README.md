@@ -394,6 +394,7 @@ Event::listen(MessageHardBounced::class, function (MessageHardBounced $event) {
 | `MessageOpened` | `message.opened` | Recipient opened the email |
 | `MessageClicked` | `message.clicked` | Recipient clicked a link |
 | `MessageInbound` | `message.inbound` | Inbound email received |
+| `InboundRejected` | `inbound.rejected` | Inbound email permanently rejected during SMTP, so no `message.inbound` follows |
 | `MessageAutoReplied` | `message.auto_replied` | An automatic reply was received |
 | `MessageScheduled` | `message.scheduled` | A message was scheduled |
 | `MessageRescheduled` | `message.rescheduled` | A message's schedule changed |
@@ -440,6 +441,7 @@ $event->payload['data']['tags']; // fields the typed data does not map
 | `MessageOpened` | `messageId`, `subject`, `recipient`, `openedAt`, `firstOpen`, `deviceType`, `clientType`, `clientName`, `userAgent`, `bot`, `metadata`, `tag`, `headers` |
 | `MessageClicked` | `messageId`, `subject`, `recipient`, `clickedAt`, `destinationUrl`, `linkIndex`, `anchorText`, `firstClick`, `deviceType`, `clientType`, `clientName`, `userAgent`, `bot`, `metadata`, `tag`, `headers` |
 | `MessageInbound` | `route`, `messageId`, `from`, `to`, `cc`, `recipient`, `subaddress`, `replyTo`, `subject`, `date`, `body`, `tag`, `headers`, `attachments`, `isSpam`, `spamScore`, `spamSymbols` |
+| `InboundRejected` | `rejectionId`, `route`, `stage`, `reason`, `permanent`, `recipients`, `smtp` (`code`, `enhancedCode`, `message`), `envelope` (`mailFrom`, `remoteIp`, `remoteHostname`, `helo`), `size` (`declaredBytes`, `observedBytes`, `limitBytes`, or `null` unless `reason` is `message_too_large`) |
 | `MessageAutoReplied` | `messageId`, `subject`, `autoReply`, `metadata`, `tag`, `headers` |
 | `MessageScheduled`, `MessageRescheduled`, `MessageCanceled`, `MessageReleased` | `messageId`, `subject`, the schedule times, `metadata`, `tag`, `headers` |
 | `SuppressionAdded`, `SuppressionRemoved` | `suppressionId`, `type`, `value`, `reason`, `appliesTo` |

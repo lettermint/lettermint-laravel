@@ -1,5 +1,6 @@
 <?php
 
+use Lettermint\Laravel\Events\InboundRejected;
 use Lettermint\Laravel\Events\MessageClicked;
 use Lettermint\Laravel\Events\MessageCreated;
 use Lettermint\Laravel\Events\MessageDelivered;
@@ -286,6 +287,17 @@ it('creates correct event class for each type', function (string $eventType, str
             'spam_score' => 0,
             'spam_symbols' => [],
         ],
+        'inbound.rejected' => [
+            'rejection_id' => 'rejection-123',
+            'route' => 'support-inbox',
+            'stage' => 'rcpt',
+            'reason' => 'message_too_large',
+            'permanent' => true,
+            'recipients' => ['support@example.com'],
+            'smtp' => ['code' => 550, 'enhanced_code' => '5.3.4', 'message' => 'Message size exceeds fixed maximum message size'],
+            'envelope' => ['mail_from' => 'customer@example.com', 'remote_ip' => '203.0.113.42', 'remote_hostname' => 'mail.example.com', 'helo' => 'mail.example.com'],
+            'size' => ['declared_bytes' => 52428800, 'observed_bytes' => null, 'limit_bytes' => 26214400],
+        ],
         'suppression.added' => [
             'suppression_id' => 'suppression-123',
             'type' => 'email',
@@ -331,17 +343,18 @@ it('creates correct event class for each type', function (string $eventType, str
     ['message.opened', MessageOpened::class],
     ['message.clicked', MessageClicked::class],
     ['message.inbound', MessageInbound::class],
+    ['inbound.rejected', InboundRejected::class],
     ['suppression.added', SuppressionAdded::class],
     ['suppression.removed', SuppressionRemoved::class],
     ['webhook.test', WebhookTest::class],
 ]);
 
-it('does not classify suppression changes as message delivery issues', function (string $eventType): void {
+it('does not classify suppression changes and inbound rejections as message delivery issues', function (string $eventType): void {
     $type = WebhookEventType::from($eventType);
 
     expect($type->isBounce())->toBeFalse()
         ->and($type->isDeliveryIssue())->toBeFalse();
-})->with(['suppression.added', 'suppression.removed']);
+})->with(['suppression.added', 'suppression.removed', 'inbound.rejected']);
 
 it('knows every webhook event the PHP SDK knows', function () {
     $known = array_column(WebhookEventType::cases(), 'value');
