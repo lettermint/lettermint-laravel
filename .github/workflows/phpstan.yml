@@ -2,10 +2,13 @@ name: PHPStan
 
 on:
   push:
+    branches:
+      - main
     paths:
       - '**.php'
       - 'phpstan.neon.dist'
       - '.github/workflows/phpstan.yml'
+  workflow_call:
 
 jobs:
   phpstan:
