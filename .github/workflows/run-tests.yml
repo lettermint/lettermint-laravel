@@ -16,6 +16,15 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  # Composer 2.9+ refuses to install versions with security advisories, abandoned
+  # packages and (2.11+) releases still in their cooldown period. CI must install
+  # every version composer.json supports, and prefer-lowest must install the real
+  # lowest versions, so CI turns that blocking off. COMPOSER_NO_BLOCKING is the
+  # 2.11+ name; COMPOSER_NO_SECURITY_BLOCKING covers 2.9 and 2.10.
+  COMPOSER_NO_BLOCKING: 1
+  COMPOSER_NO_SECURITY_BLOCKING: 1
+
 jobs:
   test:
     runs-on: ${{ matrix.os }}
@@ -83,12 +92,7 @@ jobs:
         run: |
           composer require "pestphp/pest:^4.0" "pestphp/pest-plugin-laravel:^4.0" "pestphp/pest-plugin-arch:^4.0" --dev --no-interaction --no-update
 
-      # Laravel 10 and 11 are out of security support, and Composer refuses to install
-      # releases with open advisories. Allow them here to keep testing the versions
-      # composer.json still supports.
       - name: Install all dependencies
-        env:
-          COMPOSER_NO_SECURITY_BLOCKING: ${{ (startsWith(matrix.laravel, '10.') || startsWith(matrix.laravel, '11.')) && '1' || '' }}
         run: |
           composer update --${{ matrix.stability }} --prefer-dist --no-interaction
 
