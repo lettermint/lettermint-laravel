@@ -3,7 +3,11 @@
 use GuzzleHttp\Exception\ConnectException;
 use GuzzleHttp\Psr7\Request;
 use GuzzleHttp\Psr7\Response;
+use Illuminate\Mail\Mailable;
+use Illuminate\Mail\Mailables\Content;
+use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Mail\MailManager;
+use Illuminate\Support\Facades\Mail;
 use Lettermint\Exceptions\ConnectionException;
 use Lettermint\Exceptions\RateLimitException;
 use Lettermint\Exceptions\ServerException;
@@ -439,7 +443,144 @@ it('omits tag and metadata when none are provided', function () {
 
     expect($this->http->lastRequest()['data'])
         ->not->toHaveKey('tag')
+        ->not->toHaveKey('tags')
         ->not->toHaveKey('metadata');
+});
+
+it('sends the last plain tag when there are several', function () {
+    $email = lettermintTestEmail();
+    $email->getHeaders()->add(new TagHeader('first'));
+    $email->getHeaders()->add(new TagHeader('second'));
+
+    $this->transport->send($email);
+
+    expect($this->http->lastRequest()['data'])
+        ->toHaveKey('tag', 'second')
+        ->not->toHaveKey('tags');
+});
+
+it('sends tags written as name:value as name/value tags', function () {
+    $email = lettermintTestEmail();
+    $email->getHeaders()->add(new TagHeader('campaign:welcome-v2'));
+    $email->getHeaders()->add(new TagHeader('environment:production'));
+
+    $this->transport->send($email);
+
+    expect($this->http->lastRequest()['data'])
+        ->toHaveKey('tags', [
+            ['name' => 'campaign', 'value' => 'welcome-v2'],
+            ['name' => 'environment', 'value' => 'production'],
+        ])
+        ->not->toHaveKey('tag');
+});
+
+it('sends a plain tag and name/value tags together', function () {
+    $email = lettermintTestEmail();
+    $email->getHeaders()->add(new TagHeader('campaign:welcome-v2'));
+    $email->getHeaders()->add(new TagHeader('onboarding'));
+    $email->getHeaders()->addHeader('X-LM-Tag', 'fallback-tag');
+
+    $this->transport->send($email);
+
+    expect($this->http->lastRequest()['data'])
+        ->toHaveKey('tag', 'onboarding')
+        ->toHaveKey('tags', [['name' => 'campaign', 'value' => 'welcome-v2']]);
+});
+
+it('falls back to X-LM-Tag when every tag is a name/value tag', function () {
+    $email = lettermintTestEmail();
+    $email->getHeaders()->add(new TagHeader('campaign:welcome-v2'));
+    $email->getHeaders()->addHeader('X-LM-Tag', 'fallback-tag');
+
+    $this->transport->send($email);
+
+    expect($this->http->lastRequest()['data'])
+        ->toHaveKey('tag', 'fallback-tag')
+        ->toHaveKey('tags', [['name' => 'campaign', 'value' => 'welcome-v2']]);
+});
+
+it('keeps the last value when a tag name is used more than once', function () {
+    $email = lettermintTestEmail();
+    $email->getHeaders()->add(new TagHeader('campaign:spring'));
+    $email->getHeaders()->add(new TagHeader('environment:production'));
+    $email->getHeaders()->add(new TagHeader('campaign:autumn'));
+
+    $this->transport->send($email);
+
+    expect($this->http->lastRequest()['data']['tags'])->toBe([
+        ['name' => 'campaign', 'value' => 'autumn'],
+        ['name' => 'environment', 'value' => 'production'],
+    ]);
+});
+
+it('sends a numeric tag name as a string', function () {
+    $email = lettermintTestEmail();
+    $email->getHeaders()->add(new TagHeader('2026:q4'));
+
+    $this->transport->send($email);
+
+    expect($this->http->lastRequest()['data']['tags'])->toBe([
+        ['name' => '2026', 'value' => 'q4'],
+    ]);
+});
+
+it('throws a TransportException before sending an invalid name/value tag', function (string $tag) {
+    $email = lettermintTestEmail();
+    $email->getHeaders()->add(new TagHeader($tag));
+
+    expect(fn () => $this->transport->send($email))
+        ->toThrow(TransportException::class, 'Message tag');
+
+    expect($this->http->requests)->toBe([]);
+})->with([
+    'empty name' => [':welcome'],
+    'empty value' => ['campaign:'],
+    'space in value' => ['campaign:welcome email'],
+    'colon in value' => ['campaign:a:b'],
+    'reserved name' => ['__lettermint:x'],
+]);
+
+it('throws a TransportException before sending more than 20 name/value tags', function () {
+    $email = lettermintTestEmail();
+    foreach (range(1, 21) as $i) {
+        $email->getHeaders()->add(new TagHeader("tag{$i}:value"));
+    }
+
+    expect(fn () => $this->transport->send($email))
+        ->toThrow(TransportException::class, 'No more than 20 message tags are permitted.');
+
+    expect($this->http->requests)->toBe([]);
+});
+
+it('sends name/value tags set on a mailable', function () {
+    config()->set('mail.default', 'lettermint');
+    config()->set('mail.mailers.lettermint', ['transport' => 'lettermint']);
+    $this->app->instance(Lettermint::class, $this->lettermint);
+    Mail::purge('lettermint');
+
+    Mail::to('to@example.com')->send(new class extends Mailable
+    {
+        public function envelope(): Envelope
+        {
+            return new Envelope(
+                from: 'from@example.com',
+                subject: 'Welcome',
+                tags: ['onboarding', 'campaign:welcome-v2', 'environment:production'],
+            );
+        }
+
+        public function content(): Content
+        {
+            return new Content(htmlString: '<p>Welcome</p>');
+        }
+    });
+
+    expect($this->http->lastRequest()['data'])
+        ->toHaveKey('tag', 'onboarding')
+        ->toHaveKey('tags', [
+            ['name' => 'campaign', 'value' => 'welcome-v2'],
+            ['name' => 'environment', 'value' => 'production'],
+        ]);
 });
 
 it('sends a custom Idempotency-Key header as request header, not as email header', function (array $config) {

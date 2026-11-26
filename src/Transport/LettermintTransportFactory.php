@@ -129,6 +129,11 @@ class LettermintTransportFactory extends AbstractTransport
             $payload['tag'] = $tag;
         }
 
+        $tags = $this->resolveNamedTags($email);
+        if ($tags !== []) {
+            $payload['tags'] = $tags;
+        }
+
         $metadata = $this->resolveMetadata($email);
         if (! empty($metadata)) {
             $payload['metadata'] = $metadata;
@@ -240,12 +245,16 @@ class LettermintTransportFactory extends AbstractTransport
         return hash('sha256', implode('|', array_filter($keyParts)));
     }
 
+    /**
+     * The single legacy tag: the last tag without a colon, or the X-LM-Tag
+     * header when there is none.
+     */
     protected function resolveTag(Email $email): ?string
     {
         $tag = null;
 
         foreach ($email->getHeaders()->all() as $header) {
-            if ($header instanceof TagHeader) {
+            if ($header instanceof TagHeader && ! $this->isNamedTag($header->getValue())) {
                 $tag = $header->getValue();
             }
         }
@@ -256,6 +265,40 @@ class LettermintTransportFactory extends AbstractTransport
 
         // Fallback: Check for X-LM-Tag header for backward compatibility
         return $email->getHeaders()->get('X-LM-Tag')?->getBodyAsString();
+    }
+
+    /**
+     * The name/value tags, from tags written as `name:value`. When a name is
+     * used more than once, the last value wins. The Lettermint SDK checks the
+     * names, values and count before the request is sent.
+     *
+     * @return list<array{name: string, value: string}>
+     */
+    protected function resolveNamedTags(Email $email): array
+    {
+        $tags = [];
+
+        foreach ($email->getHeaders()->all() as $header) {
+            if ($header instanceof TagHeader && $this->isNamedTag($header->getValue())) {
+                [$name, $value] = explode(':', $header->getValue(), 2);
+                $tags[$name] = $value;
+            }
+        }
+
+        return array_map(
+            fn (string $name, string $value): array => ['name' => $name, 'value' => $value],
+            array_map('strval', array_keys($tags)),
+            array_values($tags),
+        );
+    }
+
+    /**
+     * A colon is not valid in a legacy tag, so a tag that contains one is a
+     * name/value tag.
+     */
+    protected function isNamedTag(string $tag): bool
+    {
+        return str_contains($tag, ':');
     }
 
     /**

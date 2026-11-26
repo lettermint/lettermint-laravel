@@ -186,7 +186,19 @@ public function envelope(): Envelope
 }
 ```
 
-Lettermint stores one tag per email; when a mailable has several, the last one is sent. The `X-LM-Tag` header is also supported, for consistency with the SMTP relay; a tag set with `tag()` takes precedence over it.
+To add several tags to one email, write them as `name:value`. Each one is sent as a name/value tag:
+
+```php
+Mail::send((new OrderShipped($order))
+    ->tag('transactional')
+    ->tag('campaign:welcome-v2')
+    ->tag('environment:production')
+);
+```
+
+Names have 1 to 32 characters and values 1 to 64 characters, both from `A-Z`, `a-z`, `0-9`, `_` and `-`. Names are case-sensitive and must not start with `__lettermint`. An email can have up to 20 name/value tags, or 19 when it also has a plain tag. When a name is used more than once, the last value is sent. The transport throws a `TransportException` before sending when a tag breaks these rules.
+
+A tag without a colon is the email's single plain tag. When a mailable has several plain tags, the last one is sent. The `X-LM-Tag` header is also supported, for consistency with the SMTP relay; a plain tag set with `tag()` takes precedence over it.
 
 ### Attachments
 
